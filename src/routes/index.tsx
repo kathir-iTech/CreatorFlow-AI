@@ -1,18 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
-  Sparkles,
-  ShieldCheck,
-  Zap,
   ArrowRight,
-  Wand2,
-  Image as ImageIcon,
   Calendar,
+  Captions,
+  Image as ImageIcon,
+  Sparkles,
+  Wand2,
+  Zap,
 } from "lucide-react";
 import { UrlInput } from "@/components/UrlInput";
+import { CaptionsTab } from "@/components/CaptionsTab";
 import { Card, CardContent } from "@/components/ui/card";
-import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/sonner";
+import type { CaptionsResult } from "@/lib/api";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -23,7 +25,7 @@ function Hero() {
     <div className="mx-auto max-w-3xl text-center">
       <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground backdrop-blur">
         <Sparkles className="h-3 w-3 text-violet-300" />
-        CreatorFlow AI — Phase 0 scaffold
+        CreatorFlow AI
       </div>
       <h1 className="mt-4 text-balance text-3xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
         Automate your creator <span className="gradient-text">workflow</span>
@@ -36,60 +38,29 @@ function Hero() {
   );
 }
 
-function Features() {
-  const items = [
-    {
-      icon: Zap,
-      title: "Fast fetch",
-      body: "YouTube metadata + formats up to 1080p, streaming-ready.",
-    },
-    {
-      icon: Wand2,
-      title: "Captions + SEO",
-      body: "Native captions → Groq Whisper fallback + AI SEO pack.",
-    },
-    { icon: ImageIcon, title: "Thumbnails", body: "FFmpeg keyframes + canvas editor, export PNG." },
-    {
-      icon: Calendar,
-      title: "Schedule",
-      body: "Demo-data analytics, best-time heuristic, local calendar.",
-    },
-    {
-      icon: ShieldCheck,
-      title: "Free stack",
-      body: "Groq free tier, no paid keys required to run.",
-    },
-    {
-      icon: Sparkles,
-      title: "Polished UI",
-      body: "shadcn + Tailwind v4, dark/light, mobile-ready.",
-    },
+function StepIndicator({ active }: { active: string }) {
+  const steps = [
+    { key: "fetch", label: "Fetch" },
+    { key: "captions", label: "Captions" },
+    { key: "seo", label: "SEO" },
+    { key: "thumbnail", label: "Thumbnail" },
+    { key: "schedule", label: "Schedule" },
   ];
-  return (
-    <div className="mx-auto mt-8 grid w-full max-w-3xl gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {items.map((it) => (
-        <div key={it.title} className="glass rounded-2xl p-4">
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-foreground/5 text-violet-300">
-            <it.icon className="h-4 w-4" />
-          </div>
-          <div className="mt-3 text-sm font-medium text-foreground">{it.title}</div>
-          <div className="mt-1 text-xs text-muted-foreground">{it.body}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function StepIndicator() {
-  const steps = ["Fetch", "Captions", "SEO", "Thumbnail", "Schedule"];
+  const activeIdx = steps.findIndex((s) => s.key === active);
   return (
     <div className="mx-auto mt-6 flex w-full max-w-3xl items-center justify-between gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-white/5 p-2 backdrop-blur">
       {steps.map((s, i) => (
-        <div key={s} className="flex items-center gap-2">
-          <div className="grid h-7 w-7 place-items-center rounded-full bg-foreground/10 text-xs font-medium text-foreground">
+        <div key={s.key} className="flex items-center gap-2">
+          <div
+            className={
+              i <= activeIdx
+                ? "grid h-7 w-7 place-items-center rounded-full bg-gradient-to-r from-violet-500 to-cyan-400 text-xs font-medium text-white"
+                : "grid h-7 w-7 place-items-center rounded-full bg-foreground/10 text-xs font-medium text-foreground"
+            }
+          >
             {i + 1}
           </div>
-          <span className="whitespace-nowrap text-xs text-muted-foreground">{s}</span>
+          <span className="whitespace-nowrap text-xs text-muted-foreground">{s.label}</span>
           {i < steps.length - 1 && (
             <ArrowRight className="hidden h-3 w-3 text-muted-foreground/50 sm:block" />
           )}
@@ -99,21 +70,36 @@ function StepIndicator() {
   );
 }
 
-function Index() {
-  const [url, setUrl] = useState("");
-  const [loading, setLoading] = useState(false);
+function PlaceholderTab({ title, body }: { title: string; body: string }) {
+  return (
+    <Card className="glass">
+      <CardContent className="p-8 text-center">
+        <div className="text-sm font-medium text-foreground">{title}</div>
+        <p className="mt-1 text-xs text-muted-foreground">{body}</p>
+      </CardContent>
+    </Card>
+  );
+}
 
-  const fetchInfo = async (u: string) => {
+function Index() {
+  // Shared URL input — built once at the top level, reused by every tab.
+  const [url, setUrl] = useState("");
+  const [submittedUrl, setSubmittedUrl] = useState("");
+  const [tab, setTab] = useState("captions");
+  const [, setTranscript] = useState("");
+  const [, setCaptionsResult] = useState<CaptionsResult | null>(null);
+
+  const handleSubmit = useCallback((u: string) => {
     setUrl(u);
-    setLoading(true);
-    // Phase 0: just demo toast, real /api/formats comes in Phase 1
-    setTimeout(() => {
-      setLoading(false);
-      toast.info("Scaffold ready", {
-        description: `Pasted: ${u.slice(0, 48)}${u.length > 48 ? "…" : ""} — API wiring lands in Phase 1.`,
-      });
-    }, 600);
-  };
+    setSubmittedUrl(u);
+    setTab("captions");
+  }, []);
+
+  const handleTranscript = useCallback((text: string, result: CaptionsResult) => {
+    // Shared state for Phase 3 — SEO reuses this transcript without re-fetching.
+    setTranscript(text);
+    setCaptionsResult(result);
+  }, []);
 
   return (
     <div className="space-y-8">
@@ -121,37 +107,59 @@ function Index() {
       <section className="pt-6 sm:pt-10">
         <Hero />
         <div className="mt-6">
-          <UrlInput onSubmit={fetchInfo} loading={loading} defaultUrl={url} />
+          <UrlInput onSubmit={handleSubmit} defaultUrl={url} />
         </div>
-        <StepIndicator />
-        <div className="mx-auto mt-6 max-w-3xl text-center text-xs text-muted-foreground">
-          Placeholder pipeline — every tab shares this single URL input (built once at top level).
-        </div>
+        <StepIndicator active={tab} />
       </section>
 
-      <Features />
+      <section className="mx-auto w-full max-w-3xl">
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="fetch" className="gap-1 text-xs">
+              <Zap className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Fetch</span>
+            </TabsTrigger>
+            <TabsTrigger value="captions" className="gap-1 text-xs">
+              <Captions className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Captions</span>
+            </TabsTrigger>
+            <TabsTrigger value="seo" className="gap-1 text-xs">
+              <Wand2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">SEO</span>
+            </TabsTrigger>
+            <TabsTrigger value="thumbnail" className="gap-1 text-xs">
+              <ImageIcon className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Thumb</span>
+            </TabsTrigger>
+            <TabsTrigger value="schedule" className="gap-1 text-xs">
+              <Calendar className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Plan</span>
+            </TabsTrigger>
+          </TabsList>
 
-      <Card className="glass mx-auto max-w-3xl">
-        <CardContent className="p-6 text-sm text-muted-foreground">
-          <div className="font-medium text-foreground">Phase 0 verification</div>
-          <ul className="mt-2 list-disc space-y-1 pl-5 text-xs">
-            <li>
-              <code className="rounded bg-foreground/5 px-1 py-0.5">.gitignore</code> created first
-              — <code>_reference-mediahub/</code>, <code>.env</code>, <code>cookies.txt</code> are
-              gitignored
-            </li>
-            <li>Design tokens + shadcn UI copied from reference (Tailwind v4)</li>
-            <li>
-              No <code>cookies.txt</code> inside repo — real file lives at{" "}
-              <code>D:\Developer\secrets\cookies.txt</code> and Vercel env{" "}
-              <code>YT_COOKIES_B64</code>
-            </li>
-            <li>
-              Env vars: <code>GROQ_API_KEY</code>, <code>YT_COOKIES_B64</code> (see .env.example)
-            </li>
-          </ul>
-        </CardContent>
-      </Card>
+          <TabsContent value="fetch" className="mt-4">
+            <PlaceholderTab
+              title="Fetch"
+              body="Video metadata + formats (existing POST /api/v1/info + /downloads flow). Paste a link above — captions start automatically."
+            />
+          </TabsContent>
+          <TabsContent value="captions" className="mt-4">
+            <CaptionsTab url={submittedUrl} onTranscript={handleTranscript} />
+          </TabsContent>
+          <TabsContent value="seo" className="mt-4">
+            <PlaceholderTab
+              title="SEO generator"
+              body="Phase 3 — reuses the Captions transcript via shared state."
+            />
+          </TabsContent>
+          <TabsContent value="thumbnail" className="mt-4">
+            <PlaceholderTab title="Thumbnails" body="Phase 4 — FFmpeg keyframes + canvas editor." />
+          </TabsContent>
+          <TabsContent value="schedule" className="mt-4">
+            <PlaceholderTab title="Schedule" body="Phase 5 — calendar + demo-data analytics." />
+          </TabsContent>
+        </Tabs>
+      </section>
     </div>
   );
 }

@@ -29,6 +29,9 @@ const schema = z.object({
   COOKIES_TXT: z.string().optional(),
   COOKIES_TXT_BASE64: z.string().optional(),
 
+  // Groq — free LLM + Whisper (one key) https://console.groq.com
+  GROQ_API_KEY: z.string().optional(),
+
   // Per-provider cookie overrides. When set, they take precedence over
   // the generic COOKIES_TXT* pair for that provider only.
   INSTAGRAM_COOKIES_TXT: z.string().optional(),
@@ -44,12 +47,20 @@ const schema = z.object({
   // TMP_DIR to pin a custom writeable path.
   TMP_DIR: z.string().default(path.join(os.tmpdir(), "mediahub")),
   MAX_FILE_SIZE_MB: z.coerce.number().int().positive().default(2048),
-  JOB_TIMEOUT_MS: z.coerce.number().int().positive().default(10 * 60_000),
+  JOB_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(10 * 60_000),
 
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(60),
 
-  METADATA_CACHE_TTL_MS: z.coerce.number().int().positive().default(10 * 60_000),
+  METADATA_CACHE_TTL_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(10 * 60_000),
   METADATA_CACHE_MAX: z.coerce.number().int().positive().default(500),
 
   // Cookie freshness canary — periodic yt-dlp probe to detect stale sessions.
@@ -101,13 +112,16 @@ const _data = parsed.data;
 // Explicit fallback: env value > default. Trim to defend against
 // trailing whitespace / newlines pasted via the Railway UI.
 const _potBase =
-  (process.env.YOUTUBE_GETPOT_BASE_URL ?? _data.YOUTUBE_GETPOT_BASE_URL ?? "")
-    .trim() || "http://localhost:4416";
+  (process.env.YOUTUBE_GETPOT_BASE_URL ?? _data.YOUTUBE_GETPOT_BASE_URL ?? "").trim() ||
+  "http://localhost:4416";
 export const env: Env = { ..._data, YOUTUBE_GETPOT_BASE_URL: _potBase };
 // eslint-disable-next-line no-console
-console.log('ENV DEBUG:', Object.fromEntries(Object.entries(process.env).filter(([k]) => k.startsWith('YOUTUBE_'))));
+console.log(
+  "ENV DEBUG:",
+  Object.fromEntries(Object.entries(process.env).filter(([k]) => k.startsWith("YOUTUBE_"))),
+);
 // eslint-disable-next-line no-console
-console.log('STARTUP ENV CHECK:', JSON.stringify(process.env.YOUTUBE_GETPOT_BASE_URL));
+console.log("STARTUP ENV CHECK:", JSON.stringify(process.env.YOUTUBE_GETPOT_BASE_URL));
 export const isProd = env.NODE_ENV === "production";
 export const isDev = env.NODE_ENV === "development";
 

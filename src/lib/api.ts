@@ -169,6 +169,23 @@ export type Provider = {
   requiresCookies?: boolean;
 };
 
+export type CaptionSegment = {
+  start: number;
+  end: number;
+  text: string;
+};
+
+export type CaptionsResult = {
+  videoId?: string;
+  providerId: string;
+  source: "native" | "whisper";
+  language?: string;
+  isAuto?: boolean;
+  captions: CaptionSegment[];
+  srt: string;
+  vtt: string;
+};
+
 // ---------------- Calls ----------------
 
 export const api = {
@@ -211,6 +228,12 @@ export const api = {
   },
 
   providers: () => request<Provider[]>("/api/v1/providers"),
+
+  captions: (url: string, lang = "en") =>
+    request<CaptionsResult>("/api/v1/captions", {
+      method: "POST",
+      body: JSON.stringify({ url, lang }),
+    }),
 
   health: async () => {
     const r = await fetch(`${API_BASE_URL}/healthz`).catch(() => null);

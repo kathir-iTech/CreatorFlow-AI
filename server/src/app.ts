@@ -10,6 +10,7 @@ import { errorHandler, notFoundHandler } from "@/middleware/error.js";
 import { globalRateLimit } from "@/middleware/rateLimit.js";
 import { healthRouter } from "@/routes/health.routes.js";
 import { infoRouter } from "@/routes/info.routes.js";
+import { captionsRouter } from "@/routes/captions.routes.js";
 import { downloadRouter } from "@/routes/download.routes.js";
 import { streamRouter } from "@/routes/stream.routes.js";
 import { providersRouter } from "@/routes/providers.routes.js";
@@ -47,6 +48,7 @@ export function createApp(): Express {
 
   // Versioned API
   app.use(`${API_PREFIX}/info`, infoRouter);
+  app.use(`${API_PREFIX}/captions`, captionsRouter);
   app.use(`${API_PREFIX}/downloads`, downloadRouter);
   app.use(`${API_PREFIX}/stream`, streamRouter);
   app.use(`${API_PREFIX}/providers`, providersRouter);

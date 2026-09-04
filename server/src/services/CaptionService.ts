@@ -1,0 +1,420 @@
+import { execa } from "execa";
+import { readdir, readFile, stat } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import which from "which";
+import { env } from "@/config/env.js";
+import { logger } from "@/logging/logger.js";
+import { AppError, ProviderError } from "@/errors/AppError.js";
+import { extractYoutubeVideoId } from "@/engines/downloader/BotCheckDetector.js";
+import { getCookiesPathFor } from "@/security/CookiesDetector.js";
+import { providerRegistry } from "@/providers/ProviderRegistry.js";
+import { infoService } from "./InfoService.js";
+import { ytDlpEngine } from "@/engines/downloader/YtDlpEngine.js";
+import { createJobDir, safeRemove } from "@/utils/tmp.js";
+import {
+  parseJson3,
+  parseTimedtextXml,
+  parseVtt,
+  sanitizeSegments,
+  toSrt,
+  toVtt,
+  type CaptionSegment,
+} from "@/utils/captions.js";
+
+export type CaptionSource = "native" | "whisper";
+
+export interface CaptionsResult {
+  videoId?: string;
+  providerId: string;
+  source: CaptionSource;
+  language?: string;
+  isAuto?: boolean;
+  captions: CaptionSegment[];
+  srt: string;
+  vtt: string;
+}
+
+const DESKTOP_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+
+async function fetchWithTimeout(url: string, ms = 15000, init?: RequestInit): Promise<Response> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: ctrl.signal,
+      headers: {
+        "User-Agent": DESKTOP_UA,
+        "Accept-Language": "en-US,en;q=0.9",
+        ...(init?.headers ?? {}),
+      },
+    });
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+interface CaptionTrack {
+  baseUrl: string;
+  languageCode?: string;
+  kind?: string;
+  name?: string;
+}
+
+/** Extract captionTracks from a YouTube watch page without extra deps. */
+function extractCaptionTracks(html: string): CaptionTrack[] {
+  // captionTracks JSON is embedded in ytInitialPlayerResponse — grab the array directly.
+  const m = html.match(/"captionTracks"\s*:\s*(\[.+?\])\s*,\s*"audioTracks"/s);
+  const raw = m?.[1];
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw) as Array<Record<string, unknown>>;
+    return arr
+      .filter((t) => typeof t["baseUrl"] === "string")
+      .map((t) => ({
+        baseUrl: String(t["baseUrl"]),
+        languageCode:
+          typeof t["languageCode"] === "string" ? (t["languageCode"] as string) : undefined,
+        kind: typeof t["kind"] === "string" ? (t["kind"] as string) : undefined,
+        name: undefined,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function pickTrack(tracks: CaptionTrack[], preferred = "en"): CaptionTrack | null {
+  if (tracks.length === 0) return null;
+  const norm = (s?: string) => (s ?? "").toLowerCase().split("-")[0];
+  // 1. manual (no kind=asr) in preferred lang
+  const manual = tracks.find((t) => norm(t.languageCode) === preferred && t.kind !== "asr");
+  if (manual) return manual;
+  // 2. auto in preferred lang
+  const auto = tracks.find((t) => norm(t.languageCode) === preferred);
+  if (auto) return auto;
+  // 3. any manual english
+  const anyManualEn = tracks.find((t) => norm(t.languageCode) === "en" && t.kind !== "asr");
+  if (anyManualEn) return anyManualEn;
+  // 4. any english
+  const anyEn = tracks.find((t) => norm(t.languageCode) === "en");
+  if (anyEn) return anyEn;
+  // 5. first manual, else first
+  return tracks.find((t) => t.kind !== "asr") ?? tracks[0] ?? null;
+}
+
+async function fetchTrackSegments(track: CaptionTrack): Promise<CaptionSegment[]> {
+  // Try json3 first (clean timestamps), then XML fallback.
+  const jsonUrl = track.baseUrl.includes("&fmt=")
+    ? track.baseUrl.replace(/&fmt=[^&]*/, "&fmt=json3")
+    : `${track.baseUrl}&fmt=json3`;
+  try {
+    const r = await fetchWithTimeout(jsonUrl, 15000);
+    if (r.ok) {
+      const text = await r.text();
+      try {
+        const parsed = parseJson3(JSON.parse(text));
+        if (parsed.length > 0) return parsed;
+      } catch {
+        // fall through to XML
+      }
+    }
+  } catch {
+    // fall through
+  }
+  const r2 = await fetchWithTimeout(track.baseUrl, 15000);
+  if (!r2.ok) return [];
+  const xml = await r2.text();
+  if (!xml.includes("<transcript") && !xml.includes("<timedtext") && !xml.includes("<text"))
+    return [];
+  return parseTimedtextXml(xml);
+}
+
+/** Path 1 — YouTube native captions/timedtext. Free, zero AI cost. Returns null when none exist. */
+async function fetchNativeCaptions(
+  videoId: string,
+  preferredLang = "en",
+): Promise<CaptionsResult | null> {
+  // 1a. Legacy timedtext endpoints (no page parse needed — fastest).
+  const legacyUrls = [
+    `https://video.google.com/timedtext?lang=${preferredLang}&v=${videoId}`,
+    `https://video.google.com/timedtext?lang=${preferredLang}&kind=asr&v=${videoId}`,
+    `https://www.youtube.com/api/timedtext/v1/captions?lang=${preferredLang}&v=${videoId}&fmt=json3`,
+  ];
+  for (const u of legacyUrls) {
+    try {
+      const r = await fetchWithTimeout(u, 12000);
+      if (!r.ok) continue;
+      const text = await r.text();
+      if (!text || text.trim().length < 20) continue;
+      let segs: CaptionSegment[] = [];
+      const trimmed = text.trim();
+      if (trimmed.startsWith("{")) {
+        try {
+          segs = parseJson3(JSON.parse(trimmed));
+        } catch {
+          segs = [];
+        }
+      } else if (trimmed.includes("<transcript") || trimmed.includes("<text")) {
+        segs = parseTimedtextXml(trimmed);
+      }
+      segs = sanitizeSegments(segs);
+      if (segs.length > 0) {
+        logger.info(
+          { videoId, count: segs.length, via: "legacy-timedtext" },
+          "native captions hit",
+        );
+        return {
+          videoId,
+          providerId: "youtube",
+          source: "native",
+          language: preferredLang,
+          isAuto: u.includes("kind=asr"),
+          captions: segs,
+          srt: toSrt(segs),
+          vtt: toVtt(segs),
+        };
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  // 1b. Watch-page captionTracks (handles non-English + auto-generated tracks).
+  try {
+    const page = await fetchWithTimeout(`https://www.youtube.com/watch?v=${videoId}&hl=en`, 15000);
+    if (!page.ok) return null;
+    const html = await page.text();
+    const tracks = extractCaptionTracks(html);
+    if (tracks.length === 0) return null;
+    const picked = pickTrack(tracks, preferredLang);
+    if (!picked) return null;
+    const segs = sanitizeSegments(await fetchTrackSegments(picked));
+    if (segs.length === 0) return null;
+    logger.info(
+      { videoId, count: segs.length, lang: picked.languageCode, kind: picked.kind ?? "manual" },
+      "native captions hit via watch page",
+    );
+    return {
+      videoId,
+      providerId: "youtube",
+      source: "native",
+      language: picked.languageCode,
+      isAuto: picked.kind === "asr",
+      captions: segs,
+      srt: toSrt(segs),
+      vtt: toVtt(segs),
+    };
+  } catch (err) {
+    logger.debug({ err, videoId }, "watch-page caption parse failed");
+    return null;
+  }
+}
+
+/**
+ * Resolve ONLY the yt-dlp binary (not ffmpeg/ffprobe — subtitles don't need them).
+ * Deliberately independent of resolveBinaries() so captions keep working on
+ * minimal installs where ffprobe is absent.
+ */
+async function resolveYtDlpOnly(): Promise<string | null> {
+  if (env.YTDLP_PATH && existsSync(path.resolve(env.YTDLP_PATH)))
+    return path.resolve(env.YTDLP_PATH);
+  const local = path.resolve("./bin", process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp");
+  if (existsSync(local)) return local;
+  const fromPath = await which("yt-dlp", { nothrow: true });
+  return fromPath ?? null;
+}
+
+/** Path 1c — yt-dlp subtitle dump (still free, still native). Catches cases where direct fetch is blocked. */
+async function fetchNativeViaYtDlp(url: string, videoId?: string): Promise<CaptionsResult | null> {
+  const ytDlpPath = await resolveYtDlpOnly();
+  if (!ytDlpPath) {
+    logger.debug("yt-dlp not found — skipping yt-dlp subtitle dump");
+    return null;
+  }
+  const workDir = await createJobDir(`caps-${Date.now()}`);
+  try {
+    const cookies = getCookiesPathFor("youtube");
+    const args = [
+      "--skip-download",
+      "--write-sub",
+      "--write-auto-sub",
+      "--sub-langs",
+      "en.*",
+      "--sub-format",
+      "vtt",
+      "--no-playlist",
+      "--no-warnings",
+      "--no-call-home",
+      "-o",
+      "cap.%(ext)s",
+    ];
+    if (cookies) args.push("--cookies", cookies);
+    args.push(url);
+    const res = await execa(ytDlpPath, args, { cwd: workDir, timeout: 90_000, reject: false });
+    const files = (await readdir(workDir)).filter((f) => f.endsWith(".vtt"));
+    if (files.length === 0) {
+      // No subs at all — this video genuinely has none (or all fetches failed).
+      logger.debug(
+        { exitCode: res.exitCode, stderr: res.stderr?.slice(0, 500), videoId },
+        "yt-dlp subs dump found no subtitles",
+      );
+      return null;
+    }
+    if (res.exitCode !== 0) {
+      // Non-zero exit with files present is normal (e.g. one regional variant 429'd) — proceed.
+      logger.debug(
+        { exitCode: res.exitCode, files: files.length, videoId },
+        "yt-dlp subs dump partial success",
+      );
+    }
+    // Prefer manual over auto (*.en.vtt beats *.en-orig / auto-generated names)
+    files.sort((a, b) => {
+      const score = (f: string) => (f.includes("auto") || f.includes(".a.") ? 1 : 0);
+      return score(a) - score(b);
+    });
+    const first = files[0];
+    if (!first) return null;
+    const content = await readFile(path.join(workDir, first), "utf8");
+    const segs = sanitizeSegments(parseVtt(content));
+    if (segs.length === 0) return null;
+    logger.info({ videoId, count: segs.length, file: first }, "native captions hit via yt-dlp");
+    return {
+      videoId,
+      providerId: "youtube",
+      source: "native",
+      language: "en",
+      isAuto: first.toLowerCase().includes("auto"),
+      captions: segs,
+      srt: toSrt(segs),
+      vtt: toVtt(segs),
+    };
+  } catch {
+    return null;
+  } finally {
+    await safeRemove(workDir);
+  }
+}
+
+/** Path 2 — Groq Whisper fallback. Downloads audio via existing engine, transcribes free-tier. */
+async function transcribeWithWhisper(url: string, providerId: string): Promise<CaptionsResult> {
+  const apiKey = env.GROQ_API_KEY?.trim();
+  if (!apiKey) {
+    throw ProviderError(
+      "No captions found for this video and GROQ_API_KEY is not configured, so the Whisper fallback cannot run.",
+      "DOWNLOAD_FAILED",
+    );
+  }
+  const provider = providerRegistry.resolveFromUrl(url);
+  const { metadata } = await infoService.getMetadata(url);
+  const plan = provider.buildDownloadPlan(metadata, { url, kind: "audio", audioFormat: "mp3" });
+  // Keep Whisper input small: best audio is fine, engine already picks mp3.
+  const workDir = await createJobDir(`whisper-${Date.now()}`);
+  try {
+    const result = await ytDlpEngine.download({ plan, workDir, jobId: `caps-${Date.now()}` });
+    const size = (await stat(result.filePath)).size;
+    const MAX_BYTES = 25 * 1024 * 1024;
+    if (size > MAX_BYTES) {
+      throw new AppError(
+        "DOWNLOAD_FAILED",
+        `Audio too large for Whisper free tier (${(size / 1048576).toFixed(1)} MB > 25 MB). Try a shorter video.`,
+        422,
+      );
+    }
+    const buf = await readFile(result.filePath);
+    const form = new FormData();
+    form.append("file", new Blob([new Uint8Array(buf)], { type: "audio/mpeg" }), "audio.mp3");
+    form.append("model", "whisper-large-v3-turbo");
+    form.append("response_format", "verbose_json");
+    form.append("temperature", "0");
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 5 * 60_000);
+    let groqRes: Response;
+    try {
+      groqRes = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: form,
+        signal: ctrl.signal,
+      });
+    } finally {
+      clearTimeout(t);
+    }
+    if (!groqRes.ok) {
+      const body = await groqRes.text().catch(() => "");
+      logger.warn({ status: groqRes.status, body: body.slice(0, 500) }, "Groq Whisper failed");
+      throw new AppError(
+        "DOWNLOAD_FAILED",
+        `Whisper transcription failed (${groqRes.status}).`,
+        502,
+      );
+    }
+    const data = (await groqRes.json()) as {
+      segments?: Array<{ start?: number; end?: number; text?: string }>;
+      text?: string;
+    };
+    let segs: CaptionSegment[] = [];
+    if (Array.isArray(data.segments)) {
+      segs = sanitizeSegments(
+        data.segments.map((s) => ({
+          start: Number(s.start ?? 0),
+          end: Number(s.end ?? 0),
+          text: String(s.text ?? "").trim(),
+        })),
+      );
+    }
+    if (segs.length === 0 && typeof data.text === "string" && data.text.trim()) {
+      // No timestamps — chunk plain text into ~6s blocks so UI/export still works.
+      const words = data.text.trim().split(/\s+/);
+      const perLine = 14;
+      let t = 0;
+      for (let i = 0; i < words.length; i += perLine) {
+        const text = words.slice(i, i + perLine).join(" ");
+        segs.push({ start: t, end: t + 6, text });
+        t += 6;
+      }
+    }
+    if (segs.length === 0)
+      throw ProviderError("Whisper returned no transcript.", "DOWNLOAD_FAILED");
+    logger.info({ count: segs.length, providerId }, "whisper captions done");
+    return {
+      videoId: extractYoutubeVideoId(url),
+      providerId,
+      source: "whisper",
+      language: "en",
+      captions: segs,
+      srt: toSrt(segs),
+      vtt: toVtt(segs),
+    };
+  } finally {
+    await safeRemove(workDir);
+  }
+}
+
+export class CaptionService {
+  async getCaptions(rawUrl: string, lang = "en"): Promise<CaptionsResult> {
+    const url = rawUrl.trim();
+    if (!url) throw new AppError("VALIDATION_ERROR", "url is required", 400);
+    let providerId = "youtube";
+    try {
+      providerId = providerRegistry.resolveFromUrl(url).id as string;
+    } catch {
+      providerId = "youtube";
+    }
+    const videoId = extractYoutubeVideoId(url);
+
+    // Native path only makes sense for YouTube; other providers go straight to Whisper.
+    if (providerId === "youtube" && videoId) {
+      const native = await fetchNativeCaptions(videoId, lang);
+      if (native) return native;
+      const viaYtDlp = await fetchNativeViaYtDlp(url, videoId);
+      if (viaYtDlp) return viaYtDlp;
+    }
+
+    // Fallback: Whisper (needs audio download + GROQ_API_KEY).
+    return transcribeWithWhisper(url, providerId);
+  }
+}
+
+export const captionService = new CaptionService();

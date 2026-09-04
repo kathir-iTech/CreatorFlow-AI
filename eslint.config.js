@@ -6,7 +6,9 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", ".output", ".vercel", "node_modules", "_reference-mediahub"] },
+  // server/ is a separate Node/Express package with its own toolchain
+  // (see server/package.json) — don't lint it with the browser frontend config.
+  { ignores: ["dist", ".output", ".vercel", "node_modules", "_reference-mediahub", "server"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
