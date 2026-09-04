@@ -1,25 +1,24 @@
-import { useState, type FormEvent } from "react";
+import { type FormEvent } from "react";
 import { ClipboardPaste, Link as LinkIcon, Loader2, Search } from "lucide-react";
 
 type Props = {
+  value: string;
+  onValueChange: (url: string) => void;
   onSubmit: (url: string) => void;
   loading?: boolean;
-  defaultUrl?: string;
 };
 
-export function UrlInput({ onSubmit, loading, defaultUrl = "" }: Props) {
-  const [url, setUrl] = useState(defaultUrl);
-
+export function UrlInput({ value, onValueChange, onSubmit, loading }: Props) {
   const submit = (e?: FormEvent) => {
     e?.preventDefault();
-    if (!url.trim()) return;
-    onSubmit(url.trim());
+    if (!value.trim()) return;
+    onSubmit(value.trim());
   };
 
   const paste = async () => {
     try {
       const t = await navigator.clipboard.readText();
-      if (t) setUrl(t.trim());
+      if (t) onValueChange(t.trim());
     } catch {
       /* user rejected */
     }
@@ -43,8 +42,8 @@ export function UrlInput({ onSubmit, loading, defaultUrl = "" }: Props) {
       </div>
       <input
         id="media-url"
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
+        value={value}
+        onChange={(e) => onValueChange(e.target.value)}
         placeholder="Paste a YouTube, Instagram, or Facebook link…"
         inputMode="url"
         autoComplete="off"
@@ -66,7 +65,7 @@ export function UrlInput({ onSubmit, loading, defaultUrl = "" }: Props) {
       </button>
       <button
         type="submit"
-        disabled={loading || !url.trim()}
+        disabled={loading || !value.trim()}
         aria-label={loading ? "Fetching" : "Fetch media info"}
         className="inline-flex h-11 min-w-11 items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-500 to-cyan-400 px-4 text-sm font-medium text-white shadow-lg shadow-violet-500/30 transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 disabled:cursor-not-allowed disabled:opacity-50"
       >

@@ -98,6 +98,10 @@ function Index() {
     setTab("captions");
   }, []);
 
+  const handleValueChange = useCallback((u: string) => {
+    setUrl(u);
+  }, []);
+
   const handleTranscript = useCallback((text: string, result: CaptionsResult) => {
     // Shared state — SEO reuses this transcript without re-fetching.
     setTranscript(text);
@@ -110,7 +114,7 @@ function Index() {
       <section className="pt-6 sm:pt-10">
         <Hero />
         <div className="mt-6">
-          <UrlInput onSubmit={handleSubmit} defaultUrl={url} />
+          <UrlInput value={url} onValueChange={handleValueChange} onSubmit={handleSubmit} />
         </div>
         <StepIndicator active={tab} />
       </section>
