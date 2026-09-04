@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: creatorflow-ai-backend
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    plan: free
+    region: singapore # closest to IN; change to ohio/frankfurt if you prefer
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: LOG_LEVEL
+        value: info
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: FRONTEND_ORIGIN
+        sync: false # set after Vercel deploy, e.g. https://creatorflow-ai.vercel.app
+      - key: COOKIES_TXT_BASE64
+        sync: false # paste single-line base64 of your Netscape cookies.txt
+      - key: GROQ_API_KEY
+        sync: false # from https://console.groq.com
+      - key: TMP_DIR
+        value: /tmp/mediahub

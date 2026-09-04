@@ -1,0 +1,11 @@
+node_modules
+dist
+tmp/*
+!tmp/.gitkeep
+bin/*
+!bin/.gitkeep
+.env
+.env.local
+*.log
+coverage
+.DS_Store

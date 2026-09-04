@@ -1,0 +1,14 @@
+# Railway/Nixpacks build config — used when the service builder is Nixpacks.
+# Ensures ffmpeg, ffprobe, and yt-dlp are present at runtime so /readyz reports ready.
+
+[phases.setup]
+nixPkgs = ["nodejs_20", "ffmpeg-full", "python311", "python311Packages.pip"]
+
+[phases.install]
+cmds = ["python3 -m pip install --user -U yt-dlp bgutil-ytdlp-pot-provider", "npm install --no-audit --no-fund"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "node dist/server.js"

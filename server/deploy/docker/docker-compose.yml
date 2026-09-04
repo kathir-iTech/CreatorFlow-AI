@@ -1,0 +1,32 @@
+services:
+  pot-provider:
+    image: brainicism/bgutil-yt-dlp-pot-provider:latest
+    ports:
+      - "4416:4416"
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    image: mediahub-pro-api:latest
+    ports:
+      - "8787:8787"
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: info
+      MAX_CONCURRENT_DOWNLOADS: "5"
+      CORS_ORIGINS: "*"
+      YOUTUBE_GETPOT_BASE_URL: "http://pot-provider:4416"
+      # Leave empty until a proxy is provisioned. When set, it is passed to
+      # every yt-dlp invocation as: --proxy ${PROXY_URL}
+      PROXY_URL: ""
+    volumes:
+      - tmp:/app/tmp
+      # Mount a cookies.txt from the host to enable Instagram/Facebook & avoid YT bot checks:
+      # - ./cookies.txt:/app/cookies.txt:ro
+    restart: unless-stopped
+    depends_on:
+      - pot-provider
+volumes:
+  tmp:

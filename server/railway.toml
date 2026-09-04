@@ -1,0 +1,20 @@
+# Forces Railway to use the backend-root Dockerfile when Root Directory = "backend".
+# This guarantees ffmpeg, ffprobe, and yt-dlp are baked into the image.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "node dist/server.js"
+healthcheckPath = "/readyz"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+[variables]
+# YOUTUBE_GETPOT_BASE_URL must be set per-environment in the Railway dashboard
+# to the sidecar's private networking hostname, e.g.
+#   http://bgutil-pot-provider.railway.internal:4416
+# Cross-service `localhost` does NOT work on Railway.
+PROXY_URL = ""
