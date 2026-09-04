@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useState } from "react";
+import { lazy, Suspense, useCallback, useState, type ReactNode } from "react";
 import {
   ArrowRight,
   Calendar,
@@ -10,14 +10,22 @@ import {
   Zap,
 } from "lucide-react";
 import { UrlInput } from "@/components/UrlInput";
-import { CaptionsTab } from "@/components/CaptionsTab";
-import { SeoTab } from "@/components/SeoTab";
-import { ThumbnailTab } from "@/components/ThumbnailTab";
-import { ScheduleTab } from "@/components/ScheduleTab";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/sonner";
 import type { CaptionsResult } from "@/lib/api";
+
+// Code-split: each tab chunk (incl. recharts in ScheduleTab) loads only when opened.
+const CaptionsTab = lazy(() =>
+  import("@/components/CaptionsTab").then((m) => ({ default: m.CaptionsTab })),
+);
+const SeoTab = lazy(() => import("@/components/SeoTab").then((m) => ({ default: m.SeoTab })));
+const ThumbnailTab = lazy(() =>
+  import("@/components/ThumbnailTab").then((m) => ({ default: m.ThumbnailTab })),
+);
+const ScheduleTab = lazy(() =>
+  import("@/components/ScheduleTab").then((m) => ({ default: m.ScheduleTab })),
+);
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -81,6 +89,23 @@ function PlaceholderTab({ title, body }: { title: string; body: string }) {
         <p className="mt-1 text-xs text-muted-foreground">{body}</p>
       </CardContent>
     </Card>
+  );
+}
+
+function LazyPanel({ children }: { children: ReactNode }) {
+  return (
+    <Suspense
+      fallback={
+        <Card className="glass">
+          <CardContent className="p-8 text-center">
+            <div className="h-4 w-24 rounded bg-foreground/10" />
+            <div className="mt-3 h-3 w-48 rounded bg-foreground/5" />
+          </CardContent>
+        </Card>
+      }
+    >
+      {children}
+    </Suspense>
   );
 }
 
@@ -151,21 +176,29 @@ function Index() {
             />
           </TabsContent>
           <TabsContent value="captions" className="mt-4">
-            <CaptionsTab url={submittedUrl} onTranscript={handleTranscript} />
+            <LazyPanel>
+              <CaptionsTab url={submittedUrl} onTranscript={handleTranscript} />
+            </LazyPanel>
           </TabsContent>
           <TabsContent value="seo" className="mt-4">
-            <SeoTab
-              transcript={transcript}
-              videoTitle={
-                captionsResult?.videoId ? `YouTube Video ${captionsResult.videoId}` : undefined
-              }
-            />
+            <LazyPanel>
+              <SeoTab
+                transcript={transcript}
+                videoTitle={
+                  captionsResult?.videoId ? `YouTube Video ${captionsResult.videoId}` : undefined
+                }
+              />
+            </LazyPanel>
           </TabsContent>
           <TabsContent value="thumbnail" className="mt-4">
-            <ThumbnailTab url={submittedUrl} />
+            <LazyPanel>
+              <ThumbnailTab url={submittedUrl} />
+            </LazyPanel>
           </TabsContent>
           <TabsContent value="schedule" className="mt-4">
-            <ScheduleTab />
+            <LazyPanel>
+              <ScheduleTab />
+            </LazyPanel>
           </TabsContent>
         </Tabs>
       </section>
