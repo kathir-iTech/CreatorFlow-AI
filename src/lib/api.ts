@@ -186,6 +186,50 @@ export type CaptionsResult = {
   vtt: string;
 };
 
+export type SeoChapter = {
+  time: string;
+  label: string;
+};
+
+export type SeoResult = {
+  titles: string[];
+  description: string;
+  tags: string[];
+  chapters: SeoChapter[];
+};
+
+export type ThumbnailFrame = {
+  index: number;
+  timeSec: number;
+  base64: string;
+  mime: string;
+};
+
+export type ThumbnailsResult = {
+  videoId: string;
+  frames: ThumbnailFrame[];
+  capped: boolean;
+  durationSec: number;
+};
+
+export type ChannelStatsVideo = {
+  title: string;
+  views: number;
+  likes: number;
+  comments: number;
+  publishedAt: string;
+};
+
+export type ChannelStats = {
+  channelName: string;
+  subscribers: number;
+  totalViews: number;
+  totalVideos: number;
+  avgViewsPerVideo: number;
+  recentVideos: ChannelStatsVideo[];
+  viewsOverTime: { date: string; views: number }[];
+};
+
 // ---------------- Calls ----------------
 
 export const api = {
@@ -234,6 +278,20 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ url, lang }),
     }),
+
+  seo: (transcript: string, videoTitle?: string) =>
+    request<SeoResult>("/api/v1/seo", {
+      method: "POST",
+      body: JSON.stringify({ transcript, videoTitle }),
+    }),
+
+  thumbnails: (url: string) =>
+    request<ThumbnailsResult>("/api/v1/thumbnails", {
+      method: "POST",
+      body: JSON.stringify({ url }),
+    }),
+
+  channelStats: () => request<ChannelStats>("/api/v1/channel-stats"),
 
   health: async () => {
     const r = await fetch(`${API_BASE_URL}/healthz`).catch(() => null);

@@ -11,6 +11,9 @@ import {
 } from "lucide-react";
 import { UrlInput } from "@/components/UrlInput";
 import { CaptionsTab } from "@/components/CaptionsTab";
+import { SeoTab } from "@/components/SeoTab";
+import { ThumbnailTab } from "@/components/ThumbnailTab";
+import { ScheduleTab } from "@/components/ScheduleTab";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/sonner";
@@ -86,8 +89,8 @@ function Index() {
   const [url, setUrl] = useState("");
   const [submittedUrl, setSubmittedUrl] = useState("");
   const [tab, setTab] = useState("captions");
-  const [, setTranscript] = useState("");
-  const [, setCaptionsResult] = useState<CaptionsResult | null>(null);
+  const [transcript, setTranscript] = useState("");
+  const [captionsResult, setCaptionsResult] = useState<CaptionsResult | null>(null);
 
   const handleSubmit = useCallback((u: string) => {
     setUrl(u);
@@ -96,7 +99,7 @@ function Index() {
   }, []);
 
   const handleTranscript = useCallback((text: string, result: CaptionsResult) => {
-    // Shared state for Phase 3 — SEO reuses this transcript without re-fetching.
+    // Shared state — SEO reuses this transcript without re-fetching.
     setTranscript(text);
     setCaptionsResult(result);
   }, []);
@@ -147,16 +150,18 @@ function Index() {
             <CaptionsTab url={submittedUrl} onTranscript={handleTranscript} />
           </TabsContent>
           <TabsContent value="seo" className="mt-4">
-            <PlaceholderTab
-              title="SEO generator"
-              body="Phase 3 — reuses the Captions transcript via shared state."
+            <SeoTab
+              transcript={transcript}
+              videoTitle={
+                captionsResult?.videoId ? `YouTube Video ${captionsResult.videoId}` : undefined
+              }
             />
           </TabsContent>
           <TabsContent value="thumbnail" className="mt-4">
-            <PlaceholderTab title="Thumbnails" body="Phase 4 — FFmpeg keyframes + canvas editor." />
+            <ThumbnailTab url={submittedUrl} />
           </TabsContent>
           <TabsContent value="schedule" className="mt-4">
-            <PlaceholderTab title="Schedule" body="Phase 5 — calendar + demo-data analytics." />
+            <ScheduleTab />
           </TabsContent>
         </Tabs>
       </section>
