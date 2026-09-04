@@ -1,0 +1,14 @@
+﻿_reference-mediahub/
+.env
+.env.local
+cookies.txt
+*.cookies
+node_modules
+dist
+.vercel
+# Also ignore os temp, logs, build outputs
+*.log
+.turbo
+.output
+.nitro
+.tanstack
