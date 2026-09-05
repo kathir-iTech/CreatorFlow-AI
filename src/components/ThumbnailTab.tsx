@@ -161,6 +161,20 @@ export function ThumbnailTab({ url }: { url: string }) {
     });
   };
 
+  // Keyboard alternative to drag-and-drop: focus the canvas and nudge with arrows.
+  const handleCanvasKeyDown = (e: React.KeyboardEvent<HTMLCanvasElement>) => {
+    if (!text.trim()) return;
+    const step = e.shiftKey ? 0.05 : 0.01;
+    const next = { ...textPos };
+    if (e.key === "ArrowLeft") next.x = Math.max(0, next.x - step);
+    else if (e.key === "ArrowRight") next.x = Math.min(1, next.x + step);
+    else if (e.key === "ArrowUp") next.y = Math.max(0, next.y - step);
+    else if (e.key === "ArrowDown") next.y = Math.min(1, next.y + step);
+    else return;
+    e.preventDefault();
+    setTextPos(next);
+  };
+
   const exportPng = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -185,7 +199,7 @@ export function ThumbnailTab({ url }: { url: string }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" aria-live="polite">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -254,15 +268,23 @@ export function ThumbnailTab({ url }: { url: string }) {
             <CardContent>
               <canvas
                 ref={canvasRef}
-                className="w-full rounded-lg border border-white/5 bg-black/20 cursor-crosshair"
+                className="aspect-video w-full rounded-lg border border-white/5 bg-black/20 cursor-crosshair"
                 onMouseDown={handleCanvasMouseDown}
                 onMouseMove={handleCanvasMouseMove}
                 onMouseUp={handleCanvasMouseUp}
                 onMouseLeave={handleCanvasMouseUp}
+                tabIndex={text.trim() ? 0 : -1}
+                role="application"
+                aria-label={
+                  text.trim()
+                    ? "Thumbnail preview. Focus and use arrow keys to move the overlay text."
+                    : "Thumbnail preview"
+                }
+                onKeyDown={handleCanvasKeyDown}
               />
               <p className="mt-2 text-[10px] text-muted-foreground">
                 {text.trim()
-                  ? "Click and drag on the canvas to reposition text"
+                  ? "Click and drag on the canvas to reposition text (or focus it and use arrow keys)"
                   : "Add text below, then drag to position"}
               </p>
             </CardContent>
@@ -311,7 +333,11 @@ export function ThumbnailTab({ url }: { url: string }) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
+                <label htmlFor="thumb-overlay-text" className="sr-only">
+                  Thumbnail overlay text
+                </label>
                 <input
+                  id="thumb-overlay-text"
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   placeholder="Enter overlay text..."
@@ -338,13 +364,16 @@ export function ThumbnailTab({ url }: { url: string }) {
 
                 {/* Vertical position */}
                 <div className="space-y-1">
-                  <label className="text-[10px] text-muted-foreground">Vertical position</label>
+                  <span id="thumb-text-y-label" className="text-[10px] text-muted-foreground">
+                    Vertical position
+                  </span>
                   <Slider
                     value={[textPos.y * 100]}
                     onValueChange={([v]) => setTextPos((p) => ({ ...p, y: v / 100 }))}
                     min={10}
                     max={95}
                     step={1}
+                    aria-labelledby="thumb-text-y-label"
                   />
                 </div>
               </CardContent>

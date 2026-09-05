@@ -3,8 +3,12 @@ export type Theme = "dark" | "light";
 
 export function getInitialTheme(): Theme {
   if (typeof window === "undefined") return "dark";
-  const stored = localStorage.getItem(KEY) as Theme | null;
-  if (stored === "dark" || stored === "light") return stored;
+  try {
+    const stored = localStorage.getItem(KEY) as Theme | null;
+    if (stored === "dark" || stored === "light") return stored;
+  } catch {
+    /* storage blocked (private mode) — fall through to default */
+  }
   return "dark";
 }
 

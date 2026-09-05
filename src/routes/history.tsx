@@ -10,11 +10,12 @@ function HistoryPage() {
       <div className="mx-auto max-w-3xl">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">History</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Local history (IndexedDB/localStorage) lands in Phase 5 — scaffold placeholder.
+          Your recent downloads and scheduled posts will live here.
         </p>
       </div>
       <div className="glass mx-auto max-w-3xl rounded-3xl p-10 text-center text-sm text-muted-foreground">
-        No history yet — your downloads will appear here once Phase 1 wiring is complete.
+        No history yet — run the pipeline on the Studio tab and your downloads will appear
+        here.
       </div>
     </div>
   );

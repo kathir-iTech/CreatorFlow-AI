@@ -84,7 +84,7 @@ export function SeoTab({ transcript, videoTitle }: { transcript: string; videoTi
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" aria-live="polite">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -170,7 +170,11 @@ export function SeoTab({ transcript, videoTitle }: { transcript: string; videoTi
               </CardTitle>
             </CardHeader>
             <CardContent>
+              <label htmlFor="seo-description" className="sr-only">
+                Generated video description (editable)
+              </label>
               <Textarea
+                id="seo-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="min-h-[120px] border-white/5 bg-white/[0.02] text-sm leading-relaxed"

@@ -89,7 +89,7 @@ export function Header() {
 
         <div className="flex shrink-0 items-center gap-2">
           <div className="hidden sm:inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-muted-foreground">
-            Phase 0 — scaffold
+            Beta
           </div>
           <ThemeToggle />
         </div>

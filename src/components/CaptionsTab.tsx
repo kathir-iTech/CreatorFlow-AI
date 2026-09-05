@@ -117,7 +117,7 @@ export function CaptionsTab({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4" aria-live="polite">
         {status === "idle" && (
           <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center text-sm text-muted-foreground">
             No transcript yet — paste a link above and hit Fetch, or press “Get captions”.

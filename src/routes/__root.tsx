@@ -46,10 +46,29 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "CreatorFlow AI automates your creator workflow: captions, SEO, thumbnails, and scheduling — all in one flow.",
       },
+      { name: "robots", content: "index, follow" },
+      { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "CreatorFlow AI" },
+      { property: "og:title", content: "CreatorFlow AI — Creator Workflow Automation" },
+      {
+        property: "og:description",
+        content:
+          "Paste one YouTube link, get captions, SEO, thumbnails, and a posting schedule — the whole pre-publish workflow automated in one pipeline.",
+      },
+      { property: "og:url", content: "https://creatorflowai-two.vercel.app/" },
+      { property: "og:image", content: "https://creatorflowai-two.vercel.app/favicon.png" },
+      { name: "twitter:card", content: "summary" },
+      { name: "twitter:title", content: "CreatorFlow AI — Creator Workflow Automation" },
+      {
+        name: "twitter:description",
+        content:
+          "Paste one YouTube link, get captions, SEO, thumbnails, and a posting schedule — the whole pre-publish workflow automated in one pipeline.",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/vite.svg" },
+      { rel: "canonical", href: "https://creatorflowai-two.vercel.app/" },
     ],
   }),
   shellComponent: RootShell,

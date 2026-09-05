@@ -79,7 +79,11 @@ function loadPosts(): ScheduledPost[] {
 }
 
 function savePosts(posts: ScheduledPost[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
+  } catch {
+    // Private/incognito contexts may block storage — schedule still works in-memory.
+  }
 }
 
 type ChannelStats = {
@@ -176,21 +180,33 @@ export function ScheduleTab() {
       {showAdd && (
         <Card className="glass">
           <CardContent className="space-y-3 p-4">
+            <label htmlFor="sched-title" className="sr-only">
+              Video title
+            </label>
             <input
+              id="sched-title"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder="Video title"
               className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-emerald-400/50"
             />
             <div className="flex gap-2">
+              <label htmlFor="sched-date" className="sr-only">
+                Scheduled date
+              </label>
               <input
+                id="sched-date"
                 type="date"
                 value={newDate}
                 onChange={(e) => setNewDate(e.target.value)}
                 min={today}
                 className="flex-1 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-emerald-400/50"
               />
+              <label htmlFor="sched-category" className="sr-only">
+                Content category
+              </label>
               <select
+                id="sched-category"
                 value={newCategory}
                 onChange={(e) => setNewCategory(e.target.value)}
                 className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-emerald-400/50"
