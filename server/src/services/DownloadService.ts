@@ -1,3 +1,9 @@
+/**
+ * DownloadService — owns the async download JOB lifecycle only (plan, queue,
+ * progress, cancel, delivery). It does NOT execute yt-dlp itself (delegated
+ * to YtDlpEngine) and does NOT resolve transcripts, SEO, or thumbnails —
+ * those are separate services that reuse the engine independently.
+ */
 import path from "node:path";
 import { stat } from "node:fs/promises";
 import { ulid } from "ulid";

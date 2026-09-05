@@ -1,3 +1,9 @@
+/**
+ * SeoService — pure Groq chat-completion call: transcript in, titles /
+ * description / tags / chapters out. It does NOT fetch transcripts (the
+ * frontend supplies them from /captions) and does NOT touch yt-dlp, cookies,
+ * or the filesystem — the only service with zero download-engine contact.
+ */
 import { env } from "@/config/env.js";
 import { logger } from "@/logging/logger.js";
 import { AppError } from "@/errors/AppError.js";

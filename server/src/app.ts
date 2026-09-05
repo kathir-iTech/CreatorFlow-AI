@@ -6,6 +6,7 @@ import { env } from "@/config/env.js";
 import { API_PREFIX } from "@/config/constants.js";
 import { requestId } from "@/middleware/requestId.js";
 import { httpLogger } from "@/logging/httpLogger.js";
+import { metricsRecorder } from "@/middleware/metrics.js";
 import { errorHandler, notFoundHandler } from "@/middleware/error.js";
 import { globalRateLimit } from "@/middleware/rateLimit.js";
 import { healthRouter } from "@/routes/health.routes.js";
@@ -27,6 +28,7 @@ export function createApp(): Express {
 
   app.use(requestId);
   app.use(httpLogger);
+  app.use(metricsRecorder);
   app.use(helmet({ crossOriginResourcePolicy: false }));
   // Render: FRONTEND_ORIGIN takes precedence over CORS_ORIGINS for production.
   // If FRONTEND_ORIGIN is set (e.g. https://creatorflow-ai.vercel.app), only that origin is allowed.

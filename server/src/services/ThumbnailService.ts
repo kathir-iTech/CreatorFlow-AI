@@ -1,3 +1,11 @@
+/**
+ * ThumbnailService — downloads a ≤720p copy via the shared DownloadPlan
+ * pipeline, then extracts 6 evenly-spaced JPEG keyframes with ffmpeg
+ * (capped to the first 2 minutes for long videos). It does NOT serve files
+ * or run jobs (no JobStore contact — synchronous request/response) and does
+ * NOT do any AI generation — frames only, composition happens in the
+ * frontend canvas editor.
+ */
 import { execa } from "execa";
 import { readFile } from "node:fs/promises";
 import path from "node:path";

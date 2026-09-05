@@ -1,5 +1,3 @@
-console.log('BUILD MARKER:', 'v2-' + Date.now());
-console.log('STARTUP ENV CHECK:', JSON.stringify(process.env.YOUTUBE_GETPOT_BASE_URL));
 import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { getYtDlpProxyUrl } from "./config/env.js";
@@ -22,7 +20,15 @@ function getProxyStatus(url?: string) {
 }
 
 async function main(): Promise<void> {
-  logger.info({ node: process.version, platform: process.platform, env: env.NODE_ENV }, "Booting MediaHub Pro API");
+  logger.info(
+    {
+      node: process.version,
+      platform: process.platform,
+      env: env.NODE_ENV,
+      gitCommit: process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || "unknown",
+    },
+    "Booting MediaHub Pro API",
+  );
 
   await ensureTmpRoot();
   detectCookiesPath();

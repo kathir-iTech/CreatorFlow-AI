@@ -118,13 +118,8 @@ const _potBase =
   (process.env.YOUTUBE_GETPOT_BASE_URL ?? _data.YOUTUBE_GETPOT_BASE_URL ?? "").trim() ||
   "http://localhost:4416";
 export const env: Env = { ..._data, YOUTUBE_GETPOT_BASE_URL: _potBase };
-// eslint-disable-next-line no-console
-console.log(
-  "ENV DEBUG:",
-  Object.fromEntries(Object.entries(process.env).filter(([k]) => k.startsWith("YOUTUBE_"))),
-);
-// eslint-disable-next-line no-console
-console.log("STARTUP ENV CHECK:", JSON.stringify(process.env.YOUTUBE_GETPOT_BASE_URL));
+// NOTE: no logger here — this module loads before pino is constructed
+// (logger imports env for LOG_LEVEL). Boot logging lives in server.ts.
 export const isProd = env.NODE_ENV === "production";
 export const isDev = env.NODE_ENV === "development";
 

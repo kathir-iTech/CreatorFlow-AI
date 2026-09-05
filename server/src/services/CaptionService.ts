@@ -1,3 +1,10 @@
+/**
+ * CaptionService — resolves transcript TEXT only, via three ordered paths:
+ * native timedtext (free, instant) → yt-dlp subtitle dump (free, slower) →
+ * Groq Whisper (paid/limited, slowest). It does NOT handle video download
+ * itself (YtDlpEngine does, via transcribeWithWhisper's audio plan) and does
+ * NOT generate SEO — it hands plain text to the frontend, which calls /seo.
+ */
 import { execa } from "execa";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
