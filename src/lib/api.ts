@@ -404,6 +404,41 @@ export function friendlyError(e: unknown): {
         retryable: true,
       };
     }
+    if (e.code === "WHISPER_UNAVAILABLE") {
+      return {
+        title: "No captions + no AI fallback",
+        message:
+          "This video has no captions, and AI transcription isn't configured on the server.",
+        code: e.code,
+        retryable: false,
+      };
+    }
+    if (e.code === "WHISPER_FAILED") {
+      return {
+        title: "Transcription failed",
+        message: e.message || "The AI transcription service failed. Try again in a moment.",
+        code: e.code,
+        retryable: true,
+      };
+    }
+    if (e.code === "AUDIO_DOWNLOAD_FAILED") {
+      return {
+        title: "Audio unavailable",
+        message:
+          e.message ||
+          "Couldn't download this video's audio. It may be private, age-restricted, or a live stream.",
+        code: e.code,
+        retryable: true,
+      };
+    }
+    if (e.code === "NO_SPEECH") {
+      return {
+        title: "No speech detected",
+        message: "No spoken words detected in this video — the audio may be music-only.",
+        code: e.code,
+        retryable: false,
+      };
+    }
     return {
       title: "Something went wrong",
       message: "Please try again in a moment.",

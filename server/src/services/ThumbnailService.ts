@@ -1,12 +1,15 @@
 import { execa } from "execa";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import which from "which";
 import { env } from "@/config/env.js";
 import { logger } from "@/logging/logger.js";
 import { AppError } from "@/errors/AppError.js";
-import { getCookiesPathFor } from "@/security/CookiesDetector.js";
+import { providerRegistry } from "@/providers/ProviderRegistry.js";
+import { infoService } from "./InfoService.js";
 import { ytDlpEngine } from "@/engines/downloader/YtDlpEngine.js";
+import { canonicalizeMediaUrl, normalizeYoutubeUrl } from "@/utils/youtube.js";
+import { extractYoutubeVideoId } from "@/engines/downloader/BotCheckDetector.js";
 import { createJobDir, safeRemove } from "@/utils/tmp.js";
 
 const MAX_SECONDS = 120; // cap to 2 minutes for very long videos
@@ -55,18 +58,20 @@ export interface ThumbnailsResult {
   durationSec: number;
 }
 
-export async function extractThumbnails(videoUrl: string): Promise<ThumbnailsResult> {
+export async function extractThumbnails(rawUrl: string): Promise<ThumbnailsResult> {
+  // Canonicalize (?si=, shorts, embed…) so every URL shape hits the same path.
+  const videoUrl = canonicalizeMediaUrl(rawUrl);
   const workDir = await createJobDir(`thumbs-`);
   try {
-    // 1. Download the video via yt-dlp (use existing engine for cookies/auth)
-    const cookiesPath = await getCookiesPathFor("youtube");
+    // 1. Download the video via the existing engine (plan built from cached
+    // metadata, exactly like DownloadService — cookies/auth included).
+    const provider = providerRegistry.resolveFromUrl(videoUrl);
+    const { metadata } = await infoService.getMetadata(videoUrl);
+    const plan = provider.buildDownloadPlan(metadata, { url: videoUrl, kind: "video", maxHeight: 720 });
     const downloadRes = await ytDlpEngine.download({
-      url: videoUrl,
-      kind: "video",
-      maxHeight: 720, // small-ish for speed
+      plan,
       workDir,
-      cookiesPath,
-      timeoutMs: 120_000,
+      jobId: `thumbs-${Date.now()}`,
     });
 
     if (!downloadRes.filePath) {
@@ -120,9 +125,9 @@ export async function extractThumbnails(videoUrl: string): Promise<ThumbnailsRes
       throw new AppError("DOWNLOAD_FAILED", "Failed to extract any frames from the video", 502);
     }
 
-    // Extract video ID from URL
-    const videoIdMatch = videoUrl.match(/[?&]v=([^&]+)/);
-    const videoId = videoIdMatch?.[1] ?? "unknown";
+    // Video ID from the canonical URL — works for watch, youtu.be, shorts, embed.
+    const videoId =
+      normalizeYoutubeUrl(videoUrl)?.videoId ?? extractYoutubeVideoId(videoUrl) ?? "unknown";
 
     return { videoId, frames, capped, durationSec: rawDuration };
   } finally {

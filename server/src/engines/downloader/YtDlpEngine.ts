@@ -77,7 +77,18 @@ function mapYtDlpError(
   if (s.includes("http error 404")) {
     return ProviderError("Upstream returned 404 — content may be removed.", "NOT_FOUND");
   }
-  return ProviderError(`yt-dlp failed: ${output.split("\n").pop() || output}`.slice(0, 500), "DOWNLOAD_FAILED");
+  // yt-dlp sometimes exits non-zero with empty stdout/stderr (killed early,
+  // bot-blocked before any log line, age-gate with no detail). Never surface
+  // "yt-dlp failed: null" — name the provider and the likely causes instead.
+  const lastLine = output.split("\n").map((l) => l.trim()).filter(Boolean).pop();
+  if (!lastLine) {
+    const who = ctx.providerId ? ` ${ctx.providerId}` : "";
+    return ProviderError(
+      `Video info fetch${who} failed with no detail from yt-dlp — the video may be private, removed, region-locked, or behind YouTube's bot check.`,
+      "DOWNLOAD_FAILED",
+    );
+  }
+  return ProviderError(`yt-dlp failed: ${lastLine}`.slice(0, 500), "DOWNLOAD_FAILED");
 }
 
 export class YtDlpEngine {

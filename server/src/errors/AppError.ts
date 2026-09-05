@@ -13,6 +13,10 @@ export type ErrorCode =
   | "COOKIES_REQUIRED"
   | "BOT_CHECK"
   | "DOWNLOAD_FAILED"
+  | "WHISPER_UNAVAILABLE"
+  | "WHISPER_FAILED"
+  | "AUDIO_DOWNLOAD_FAILED"
+  | "NO_SPEECH"
   | "INTERNAL_ERROR";
 
 export class AppError extends Error {

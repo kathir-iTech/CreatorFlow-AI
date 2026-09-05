@@ -143,10 +143,6 @@ export function CaptionsTab({
               {error.title}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">{error.message}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Both paths failed: no native YouTube captions found, and the Whisper fallback could
-              not complete.
-            </p>
             <div className="mt-3">
               <Button
                 size="sm"

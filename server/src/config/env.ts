@@ -31,6 +31,9 @@ const schema = z.object({
 
   // Groq — free LLM + Whisper (one key) https://console.groq.com
   GROQ_API_KEY: z.string().optional(),
+  // SEO chat model. Defaults to Groq's recommended llama-3.3-70b replacement
+  // (shut down 2026-08-16). Override if Groq rotates models again.
+  GROQ_SEO_MODEL: z.string().optional(),
 
   // Per-provider cookie overrides. When set, they take precedence over
   // the generic COOKIES_TXT* pair for that provider only.

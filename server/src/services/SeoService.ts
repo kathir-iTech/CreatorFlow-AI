@@ -3,7 +3,9 @@ import { logger } from "@/logging/logger.js";
 import { AppError } from "@/errors/AppError.js";
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const MODEL = "llama-3.3-70b-versatile";
+// llama-3.3-70b-versatile was shut down 2026-08-16 (Groq deprecation);
+// openai/gpt-oss-120b is Groq's recommended replacement. Overridable via env.
+const MODEL = env.GROQ_SEO_MODEL?.trim() || "openai/gpt-oss-120b";
 
 export interface SeoChapter {
   time: string;
@@ -104,8 +106,15 @@ export async function generateSeo(transcript: string, videoTitle?: string): Prom
 
       if (!res.ok) {
         const body = await res.text();
-        logger.error({ status: res.status, body: body.slice(0, 500) }, "Groq SEO API error");
-        throw new AppError("PROVIDER_ERROR", `Groq API returned ${res.status}`, 502);
+        logger.error(
+          { status: res.status, model: MODEL, body: body.slice(0, 500) },
+          "Groq SEO API error",
+        );
+        throw new AppError(
+          "PROVIDER_ERROR",
+          `Groq API returned ${res.status}: ${body.slice(0, 200) || "no detail"}`,
+          502,
+        );
       }
 
       const json = await res.json();

@@ -92,7 +92,7 @@ export function SeoTab({ transcript, videoTitle }: { transcript: string; videoTi
           <span className="text-sm font-medium">AI SEO Generator</span>
           {result && (
             <Badge variant="secondary" className="text-[10px]">
-              Groq / llama-3.3-70b
+              Groq / gpt-oss-120b
             </Badge>
           )}
         </div>

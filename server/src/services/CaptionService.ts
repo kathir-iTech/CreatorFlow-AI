@@ -5,12 +5,13 @@ import path from "node:path";
 import which from "which";
 import { env } from "@/config/env.js";
 import { logger } from "@/logging/logger.js";
-import { AppError, ProviderError } from "@/errors/AppError.js";
+import { AppError } from "@/errors/AppError.js";
 import { extractYoutubeVideoId } from "@/engines/downloader/BotCheckDetector.js";
 import { getCookiesPathFor } from "@/security/CookiesDetector.js";
 import { providerRegistry } from "@/providers/ProviderRegistry.js";
 import { infoService } from "./InfoService.js";
 import { ytDlpEngine } from "@/engines/downloader/YtDlpEngine.js";
+import { canonicalizeMediaUrl, normalizeYoutubeUrl } from "@/utils/youtube.js";
 import { createJobDir, safeRemove } from "@/utils/tmp.js";
 import {
   parseJson3,
@@ -298,22 +299,50 @@ async function fetchNativeViaYtDlp(url: string, videoId?: string): Promise<Capti
 }
 
 /** Path 2 — Groq Whisper fallback. Downloads audio via existing engine, transcribes free-tier. */
-async function transcribeWithWhisper(url: string, providerId: string): Promise<CaptionsResult> {
+async function transcribeWithWhisper(rawUrl: string, providerId: string): Promise<CaptionsResult> {
   const apiKey = env.GROQ_API_KEY?.trim();
   if (!apiKey) {
-    throw ProviderError(
-      "No captions found for this video and GROQ_API_KEY is not configured, so the Whisper fallback cannot run.",
-      "DOWNLOAD_FAILED",
+    // Granular: native path already came up empty AND transcription isn't configured.
+    throw new AppError(
+      "WHISPER_UNAVAILABLE",
+      "This video has no captions, and AI transcription isn't configured (GROQ_API_KEY is missing on the server).",
+      503,
     );
   }
+  // Canonicalize first so ?si= / shorts / embed variants all hit the same path.
+  const url = canonicalizeMediaUrl(rawUrl);
   const provider = providerRegistry.resolveFromUrl(url);
-  const { metadata } = await infoService.getMetadata(url);
-  const plan = provider.buildDownloadPlan(metadata, { url, kind: "audio", audioFormat: "mp3" });
+  let plan: Awaited<ReturnType<typeof provider.buildDownloadPlan>>;
+  try {
+    const { metadata } = await infoService.getMetadata(url);
+    plan = provider.buildDownloadPlan(metadata, { url, kind: "audio", audioFormat: "mp3" });
+  } catch (err) {
+    // Granular: failure is upstream of transcription — audio was never downloadable.
+    const detail = err instanceof Error ? err.message : String(err);
+    logger.warn({ err, providerId, url }, "whisper fallback: audio metadata/download setup failed");
+    throw new AppError(
+      "AUDIO_DOWNLOAD_FAILED",
+      `Couldn't download this video's audio for transcription (${detail}). It may be private, age-restricted, region-locked, or a live stream.`,
+      502,
+    );
+  }
   // Keep Whisper input small: best audio is fine, engine already picks mp3.
   const workDir = await createJobDir(`whisper-${Date.now()}`);
   try {
-    const result = await ytDlpEngine.download({ plan, workDir, jobId: `caps-${Date.now()}` });
-    const size = (await stat(result.filePath)).size;
+    let filePath: string;
+    try {
+      const result = await ytDlpEngine.download({ plan, workDir, jobId: `caps-${Date.now()}` });
+      filePath = result.filePath;
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      logger.warn({ err, providerId, url }, "whisper fallback: audio download failed");
+      throw new AppError(
+        "AUDIO_DOWNLOAD_FAILED",
+        `Couldn't download this video's audio for transcription (${detail}). It may be private, age-restricted, region-locked, or a live stream.`,
+        502,
+      );
+    }
+    const size = (await stat(filePath)).size;
     const MAX_BYTES = 25 * 1024 * 1024;
     if (size > MAX_BYTES) {
       throw new AppError(
@@ -322,7 +351,7 @@ async function transcribeWithWhisper(url: string, providerId: string): Promise<C
         422,
       );
     }
-    const buf = await readFile(result.filePath);
+    const buf = await readFile(filePath);
     const form = new FormData();
     form.append("file", new Blob([new Uint8Array(buf)], { type: "audio/mpeg" }), "audio.mp3");
     form.append("model", "whisper-large-v3-turbo");
@@ -344,9 +373,16 @@ async function transcribeWithWhisper(url: string, providerId: string): Promise<C
     if (!groqRes.ok) {
       const body = await groqRes.text().catch(() => "");
       logger.warn({ status: groqRes.status, body: body.slice(0, 500) }, "Groq Whisper failed");
+      // Granular: key IS configured but the API call itself failed — surface why.
+      const hint =
+        groqRes.status === 401
+          ? " The API key looks invalid — check GROQ_API_KEY on the server."
+          : groqRes.status === 429
+            ? " Rate limit hit — wait a minute and retry."
+            : "";
       throw new AppError(
-        "DOWNLOAD_FAILED",
-        `Whisper transcription failed (${groqRes.status}).`,
+        "WHISPER_FAILED",
+        `AI transcription failed (Groq API ${groqRes.status}: ${body.slice(0, 200) || "no detail"}).${hint}`,
         502,
       );
     }
@@ -376,7 +412,12 @@ async function transcribeWithWhisper(url: string, providerId: string): Promise<C
       }
     }
     if (segs.length === 0)
-      throw ProviderError("Whisper returned no transcript.", "DOWNLOAD_FAILED");
+      // Not a failure — the video likely has no speech (music/instrumental).
+      throw new AppError(
+        "NO_SPEECH",
+        "No spoken words detected in this video — the audio may be music-only or silent.",
+        422,
+      );
     logger.info({ count: segs.length, providerId }, "whisper captions done");
     return {
       videoId: extractYoutubeVideoId(url),
@@ -394,15 +435,18 @@ async function transcribeWithWhisper(url: string, providerId: string): Promise<C
 
 export class CaptionService {
   async getCaptions(rawUrl: string, lang = "en"): Promise<CaptionsResult> {
-    const url = rawUrl.trim();
-    if (!url) throw new AppError("VALIDATION_ERROR", "url is required", 400);
+    const trimmed = rawUrl.trim();
+    if (!trimmed) throw new AppError("VALIDATION_ERROR", "url is required", 400);
+    // Canonicalize once: ?si=, shorts, embed, music/m.youtube variants all
+    // collapse to one watch URL before any provider logic sees them.
+    const url = canonicalizeMediaUrl(trimmed);
     let providerId = "youtube";
     try {
       providerId = providerRegistry.resolveFromUrl(url).id as string;
     } catch {
       providerId = "youtube";
     }
-    const videoId = extractYoutubeVideoId(url);
+    const videoId = normalizeYoutubeUrl(url)?.videoId ?? extractYoutubeVideoId(url);
 
     // Native path only makes sense for YouTube; other providers go straight to Whisper.
     if (providerId === "youtube" && videoId) {

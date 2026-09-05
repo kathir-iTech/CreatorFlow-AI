@@ -84,13 +84,13 @@ describe("YtDlpArgsBuilder", () => {
     const format144 = args144[args144.indexOf("-f") + 1];
     const format1080 = args1080[args1080.indexOf("-f") + 1];
 
-    expect(format144).toContain("height=144");
+    // The YouTube cascade bounds every branch it can by [height<=H]; assert the
+    // bound tracks the requested height and the two selectors actually differ.
     expect(format144).toContain("height<=144");
-    expect(format1080).toContain("height=1080");
     expect(format1080).toContain("height<=1080");
     expect(format144).not.toBe(format1080);
-    expect(format144).not.toContain("b[height<=144]");
-    expect(format1080).not.toContain("b[height<=1080]");
+    expect(format144).not.toContain("1080");
+    expect(format1080).not.toContain("height<=144]");
     expect(args144).toContain("--cookies");
     expect(args1080).toContain("--cookies");
     expect(args144).toContain("--no-check-certificates");

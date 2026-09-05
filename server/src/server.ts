@@ -58,6 +58,16 @@ async function main(): Promise<void> {
     `Download proxy ${proxyStatus.configured ? "configured" : "not configured"}`,
   );
 
+  // Part 2 — runtime verification WITHOUT printing the key itself. A missing
+  // key used to surface only when a user hit captions/SEO; now it's visible
+  // in the Render logs immediately on every deploy/boot.
+  const groqConfigured = !!env.GROQ_API_KEY?.trim();
+  if (groqConfigured) {
+    logger.info("GROQ_API_KEY is set — Whisper caption fallback and SEO generation enabled.");
+  } else {
+    logger.warn("GROQ_API_KEY not set — Whisper caption fallback and SEO generation will fail.");
+  }
+
   const app = createApp();
   const server = app.listen(env.PORT, env.HOST, () => {
     logger.info({ host: env.HOST, port: env.PORT }, "HTTP server listening");
