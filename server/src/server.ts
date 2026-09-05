@@ -20,8 +20,12 @@ function getProxyStatus(url?: string) {
 }
 
 async function main(): Promise<void> {
+  // The literal "BUILD MARKER" string below is load-bearing: server/Dockerfile
+  // greps dist/server.js for it as a build gate. Keep the literal intact
+  // (a plain logger call, not console.log) or Render builds will fail.
   logger.info(
     {
+      buildMarker: "BUILD MARKER",
       node: process.version,
       platform: process.platform,
       env: env.NODE_ENV,
