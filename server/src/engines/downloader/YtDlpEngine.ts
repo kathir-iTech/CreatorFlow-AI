@@ -28,7 +28,8 @@ export interface DownloadResult {
   command: string[];
 }
 
-function mapYtDlpError(
+/** Exported for unit tests — maps raw yt-dlp output to a user-safe AppError. */
+export function mapYtDlpError(
   output: string,
   ctx: { providerId?: ProviderId; url?: string; cookiesDetected?: boolean } = {},
 ): AppError {
@@ -80,11 +81,20 @@ function mapYtDlpError(
   // yt-dlp sometimes exits non-zero with empty stdout/stderr (killed early,
   // bot-blocked before any log line, age-gate with no detail). Never surface
   // "yt-dlp failed: null" — name the provider and the likely causes instead.
-  const lastLine = output.split("\n").map((l) => l.trim()).filter(Boolean).pop();
+  // ("null"/"undefined" arrive as literal last lines from some plugin paths;
+  // treat them as no-detail too.)
+  const lastLine = output
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l && l !== "null" && l !== "undefined")
+    .pop();
   if (!lastLine) {
-    const who = ctx.providerId ? ` ${ctx.providerId}` : "";
+    const who = ctx.providerId ? ` (${ctx.providerId})` : "";
+    const vid = ctx.url ? extractYoutubeVideoId(ctx.url) : undefined;
     return ProviderError(
-      `Video info fetch${who} failed with no detail from yt-dlp — the video may be private, removed, region-locked, or behind YouTube's bot check.`,
+      `Video info fetch${who} failed with no usable detail from yt-dlp` +
+        (vid ? ` (video ${vid})` : "") +
+        ` — the video may be private, removed, region-locked, or behind YouTube's bot check. Check the server logs for the full stderr.`,
       "DOWNLOAD_FAILED",
     );
   }
