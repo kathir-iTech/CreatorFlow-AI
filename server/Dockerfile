@@ -59,8 +59,8 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/* \
   && git clone --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /opt/bgutil \
   && cd /opt/bgutil/server \
-  && npm ci --no-audit --no-fund \
-  && npx tsc \
+  && npm ci --include=dev --no-audit --no-fund \
+  && npx --no-install tsc \
   && test -f build/main.js \
   && echo "BGUTIL BUILD OK: server/build/main.js present"
 
