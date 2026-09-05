@@ -87,6 +87,39 @@ Tests: `npm run --prefix server test` (vitest, 60+ unit tests),
 - API: https://creatorflow-ai-backend-lin3.onrender.com (`/healthz`, `/version`)
 - 90-second demo script: [`DEMO.md`](./DEMO.md)
 
+## Running the live demo locally (recommended for judging)
+
+The Render deployment is live and proves real cloud-deployment skills — but
+**run the click-through demo locally**. Reason, stated plainly: Render's
+shared egress IP range is hard-blocked by YouTube's anti-bot system (flat
+403s on every player request, before cookies or PO tokens are even
+evaluated). That's an infrastructure constraint, not a code bug — the exact
+same container succeeds from a residential IP. Full diagnosis:
+[`ARCHITECTURE.md`](./ARCHITECTURE.md) ("YouTube egress postmortem").
+
+One command (Windows):
+
+```bat
+start-demo.bat
+```
+
+It starts the backend container on `http://localhost:8787` (same image as
+production: yt-dlp nightly, ffmpeg, PO-token sidecar) and the frontend on
+`http://localhost:5173` wired to it. First run builds the image (~8 min);
+after that it's seconds. Requirements: Docker Desktop + a root `.env`
+containing `GROQ_API_KEY=...` (SEO + AI transcription need it; everything
+else works without). Optional: add `COOKIES_TXT_BASE64` for age-gated videos.
+
+Need a public HTTPS URL during judging instead of `localhost`? Keep the
+local stack running and tunnel just the backend:
+
+```bash
+cloudflared tunnel --url http://localhost:8787
+```
+
+then restart the frontend with `VITE_API_BASE_URL` set to the tunnel URL.
+Same container, tunneled — not Render-hosted.
+
 <!-- Screenshots: capture the five tabs with real content from the live site
      into docs/screenshots/ and reference them here before submitting. -->
 

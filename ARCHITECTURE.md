@@ -103,3 +103,32 @@ This is the minimum workable policy, not a blanket allowance.
   vs `{plan, workDir, jobId}`) — every request 500'd. `tsup` doesn't
   typecheck, so it shipped. Lesson: run `tsc --noEmit` in CI even when the
   bundler doesn't.
+
+## YouTube egress postmortem (network-level, not code-level)
+
+Symptom: every video ID — including fake/nonexistent ones — failed with
+`Failed to extract any player response`, identically, from the Render host.
+
+Diagnosis chain (each step ruled something out, in order):
+
+1. **URL parsing?** No — `?si=` links normalize correctly (unit-tested);
+   the canonical ID reached yt-dlp intact.
+2. **Stale yt-dlp?** Plausible (stable was 17 days / 20 commits behind
+   master) — ruled out: upgrading to nightly `2026.08.30` changed nothing.
+3. **Missing PO-token sidecar?** The extractor args pointed at
+   `http://localhost:4416` with nothing listening, and two of three token
+   providers were unavailable. Fixed properly (sidecar built into the image,
+   loud boot probe, verbose diagnostics repaired) — **changed nothing**.
+4. **Decisive experiment:** the exact production image, run locally.
+   Verbose yt-dlp extracted BBB metadata fine; `POST /api/v1/info` returned
+   real metadata in 12s with no cookies. Same code, same container,
+   different egress IP — works.
+5. **Render's own log** confirmed the sidecar live and reachable in prod,
+   while the verbose diagnostic there showed flat 429/403s on every player
+   client *before* any stage where a PO token would even be consulted.
+
+Conclusion: hard IP-reputation block on the host's shared egress range.
+No code, cookie refresh, or token provider fixes a block that triggers
+before session state is evaluated — so we stopped chasing it (details above
+would have been diminishing returns) and made local-container demo the
+supported path (`start-demo.bat`), leaving Render live as deployment proof.
