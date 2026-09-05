@@ -42,14 +42,18 @@ export async function ensureLatestYtDlp(): Promise<void> {
 
     // Prefer the Python package + bgutil PO-token provider plugin so the
     // bgutil sidecar HTTP server is automatically consulted for tokens.
+    // NOTE: --pre tracks the NIGHTLY channel (same policy as the Dockerfile).
+    // Without it, every reboot would DOWNGRADE a nightly binary back to the
+    // older stable release — exactly the staleness this updater exists to fix.
     try {
-      logger.info("Upgrading yt-dlp + bgutil-ytdlp-pot-provider via pip");
+      logger.info("Upgrading yt-dlp + bgutil-ytdlp-pot-provider via pip (nightly channel)");
       await execa("python3", [
         "-m",
         "pip",
         "install",
         "--break-system-packages",
         "-U",
+        "--pre",
         "yt-dlp",
         "bgutil-ytdlp-pot-provider",
       ], { timeout: 180_000 });

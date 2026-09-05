@@ -160,38 +160,58 @@ debugRouter.get("/pot-test", requireToken, async (req, res) => {
   }
 });
 
-debugRouter.get("/run-raw", requireToken, async (_req, res) => {
+/**
+ * One-off verbose diagnostic: runs yt-dlp with full -v logging against a
+ * real video so the operator can see WHETHER YouTube is reachable at all
+ * (HTTP 429/403? consent/captcha redirect? genuine parse failure?).
+ * GET /api/v1/debug/run-raw?url=<videoUrl>  (x-debug-token required)
+ * Defaults to a long-stable Blender Foundation test video.
+ */
+debugRouter.get("/run-raw", requireToken, async (req, res) => {
   try {
     const { ytDlp } = await resolveBinaries();
+    const rawUrl =
+      typeof req.query.url === "string" && req.query.url.trim()
+        ? req.query.url.trim()
+        : "https://www.youtube.com/watch?v=aqz-KE-bpKQ";
+    const potBase = (env.YOUTUBE_GETPOT_BASE_URL ?? "").trim().replace(/\/$/, "");
     const result = await execa(
       ytDlp.path,
       [
         "--verbose",
+        "--no-warnings",
         "--remote-components",
         "ejs:github",
         "--extractor-args",
         "youtube:player_client=android,tv_simply,web",
-        "--extractor-args",
-        "youtubepot-bgutilhttp:base_url=http://zesty-grace.railway.internal:4416",
-        "--list-formats",
-        "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+        ...(potBase && potBase !== "http://localhost:4416"
+          ? ["--extractor-args", `youtubepot-bgutilhttp:base_url=${potBase}`]
+          : []),
+        "--skip-download",
+        "--dump-single-json",
+        rawUrl,
       ],
-      { reject: false, timeout: 60_000, all: true },
+      { reject: false, timeout: 90_000, all: true },
     );
     res
       .type("text/plain")
       .send(
-        `EXIT: ${result.exitCode}\n\n===== STDOUT =====\n${result.stdout}\n\n===== STDERR =====\n${result.stderr}\n`,
+        `URL: ${rawUrl}\nYTDLP: ${ytDlp.path}\nEXIT: ${result.exitCode}\n\n===== STDOUT (truncated 8k) =====\n${(result.stdout ?? "").slice(0, 8000)}\n\n===== STDERR (full verbose log — read this) =====\n${result.stderr}\n`,
       );
   } catch (err) {
     res.type("text/plain").status(500).send(String((err as Error).stack ?? err));
   }
 });
 
-debugRouter.get("/download-raw", requireToken, async (_req, res) => {
+debugRouter.get("/download-raw", requireToken, async (req, res) => {
   const startedAt = Date.now();
   try {
     const { ytDlp, ffprobe } = await resolveBinaries();
+    const potBase = (env.YOUTUBE_GETPOT_BASE_URL ?? "").trim().replace(/\/$/, "");
+    const rawUrl =
+      typeof req.query.url === "string" && req.query.url.trim()
+        ? req.query.url.trim()
+        : "https://www.youtube.com/watch?v=aqz-KE-bpKQ";
     try {
       const { rm } = await import("node:fs/promises");
       await rm("/tmp/test-1080.mp4", { force: true });
@@ -210,11 +230,12 @@ debugRouter.get("/download-raw", requireToken, async (_req, res) => {
         "/tmp/test-1080.mp4",
         "--extractor-args",
         "youtube:player_client=android,tv_simply,web",
-        "--extractor-args",
-        "youtubepot-bgutilhttp:base_url=http://zesty-grace.railway.internal:4416",
+        ...(potBase && potBase !== "http://localhost:4416"
+          ? ["--extractor-args", `youtubepot-bgutilhttp:base_url=${potBase}`]
+          : []),
         "--cookies",
         "/tmp/mediahub/cookies.txt",
-        "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+        rawUrl,
       ],
       { reject: false, timeout: 180_000 },
     );
@@ -237,6 +258,7 @@ debugRouter.get("/download-raw", requireToken, async (_req, res) => {
 
     res.json({
       data: {
+        url: rawUrl,
         durationMs: Date.now() - startedAt,
         ytdlp: {
           exitCode: ytdlp.exitCode,

@@ -24,13 +24,18 @@ WORKDIR /app
 # Install ffmpeg (provides ffprobe), python3/pip, yt-dlp, and the bgutil
 # PO-token provider plugin so YouTube extraction can obtain a PO token via
 # the sidecar HTTP server.
+# NOTE: yt-dlp tracks the NIGHTLY channel (--pre), not stable. YouTube ships
+# extractor-breaking changes near-weekly and nightly carries the hotfixes
+# days before stable releases; for a live-breaking extractor issue the
+# version delta is usually the cause (diagnosed 2026-09-05: stable 2026.08.19
+# was 17 days / 20 commits behind master while all videos failed identically).
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ffmpeg python3 python3-pip ca-certificates curl unzip \
- && python3 -m pip install --break-system-packages -U yt-dlp bgutil-ytdlp-pot-provider \
- && ffmpeg -version >/dev/null \
- && ffprobe -version >/dev/null \
- && yt-dlp --version >/dev/null \
- && rm -rf /var/lib/apt/lists/*
+  && apt-get install -y --no-install-recommends ffmpeg python3 python3-pip ca-certificates curl unzip \
+  && python3 -m pip install --break-system-packages -U --pre yt-dlp bgutil-ytdlp-pot-provider \
+  && ffmpeg -version >/dev/null \
+  && ffprobe -version >/dev/null \
+  && yt-dlp --version >/dev/null \
+  && rm -rf /var/lib/apt/lists/*
 
 # Install Deno as the JS runtime yt-dlp uses for YouTube signature / n-sig
 # challenge solving. Without it yt-dlp logs "JS runtimes: none" and fails
