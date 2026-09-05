@@ -184,7 +184,9 @@ debugRouter.get("/run-raw", requireToken, async (req, res) => {
         "ejs:github",
         "--extractor-args",
         "youtube:player_client=android,tv_simply,web",
-        ...(potBase && potBase !== "http://localhost:4416"
+        // The sidecar runs in-container (see docker-entrypoint.sh), so the
+        // base URL is always passed — omitting it was the old silent failure.
+        ...(potBase
           ? ["--extractor-args", `youtubepot-bgutilhttp:base_url=${potBase}`]
           : []),
         "--skip-download",
@@ -230,7 +232,7 @@ debugRouter.get("/download-raw", requireToken, async (req, res) => {
         "/tmp/test-1080.mp4",
         "--extractor-args",
         "youtube:player_client=android,tv_simply,web",
-        ...(potBase && potBase !== "http://localhost:4416"
+        ...(potBase
           ? ["--extractor-args", `youtubepot-bgutilhttp:base_url=${potBase}`]
           : []),
         "--cookies",

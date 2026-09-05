@@ -8,6 +8,7 @@ import { detectCookiesPath } from "./security/CookiesDetector.js";
 import { ensureTmpRoot } from "./utils/tmp.js";
 import { cleanupService } from "./services/CleanupService.js";
 import { startCookieCanary } from "./runtime/CookieCanary.js";
+import { probePotProvider } from "./runtime/PotProviderProbe.js";
 
 function getProxyStatus(url?: string) {
   if (!url) return { configured: false as const };
@@ -67,6 +68,26 @@ async function main(): Promise<void> {
     { proxyConfigured: proxyStatus.configured, proxyProtocol: proxyStatus.protocol, proxyHostname: proxyStatus.hostname, proxyPort: proxyStatus.port },
     `Download proxy ${proxyStatus.configured ? "configured" : "not configured"}`,
   );
+
+  // PO-token sidecar check — LOUD by design. A missing/unreachable sidecar
+  // used to fail silently (yt-dlp fell back to no-token extraction and died
+  // with generic 403s). This line tells every deploy's story in the logs.
+  try {
+    const pot = await probePotProvider();
+    if (pot.reachable) {
+      logger.info(
+        { url: pot.url, status: pot.status, body: pot.bodyPreview },
+        "PO token sidecar reachable — YouTube extraction has token support",
+      );
+    } else {
+      logger.warn(
+        { url: pot.url, error: pot.errorMessage },
+        "PO token sidecar NOT reachable — YouTube extraction will likely fail with 403s",
+      );
+    }
+  } catch (err) {
+    logger.warn({ err }, "PO token sidecar probe crashed");
+  }
 
   // Part 2 — runtime verification WITHOUT printing the key itself. A missing
   // key used to surface only when a user hit captions/SEO; now it's visible

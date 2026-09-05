@@ -2,8 +2,10 @@
 # Render Dockerfile — persistent Node service (not serverless).
 # Installs yt-dlp + ffmpeg as normal system packages via apt-get/pip (no static-binary tricks).
 
+# NOTE: node:22 (not 20). The bgutil PO-token sidecar upstream requires
+# node>=22, and the Express app runs fine on 22 (engines: node>=20).
 # ---- builder ----
-FROM node:20-bookworm-slim AS builder
+FROM node:22-bookworm-slim AS builder
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
@@ -17,7 +19,7 @@ RUN rm -rf dist .tsbuildinfo node_modules/.cache \
  && echo "BUILD OK: dist/server.js contains BUILD MARKER"
 
 # ---- runtime ----
-FROM node:20-bookworm-slim AS runtime
+FROM node:22-bookworm-slim AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 
@@ -45,15 +47,34 @@ ENV PATH=$DENO_INSTALL/bin:$PATH
 RUN curl -fsSL https://deno.land/install.sh | sh -s -- -y \
  && deno --version
 
+# PO-token sidecar (bgutil-ytdlp-pot-provider HTTP server). Built from source
+# rather than the prebuilt image because Render free runs ONE container:
+# the sidecar must live in THIS image on 127.0.0.1:4416.
+# Freshness beats pinning here (same argument as nightly yt-dlp) — depth-1
+# master. If upstream breaks the build, the Docker build fails LOUDLY and the
+# previous deploy keeps serving; the entrypoint also boots the API degraded
+# if the sidecar file is missing at runtime.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends git ca-certificates \
+  && rm -rf /var/lib/apt/lists/* \
+  && git clone --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /opt/bgutil \
+  && cd /opt/bgutil/server \
+  && npm ci --no-audit --no-fund \
+  && npx tsc \
+  && test -f build/main.js \
+  && echo "BGUTIL BUILD OK: server/build/main.js present"
+
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev --no-audit --no-fund || npm install --omit=dev --no-audit --no-fund
 COPY --from=builder /app/dist ./dist
 
-RUN mkdir -p /app/tmp /app/bin && chown -R node:node /app
+RUN mkdir -p /app/tmp /app/bin && chown -R node:node /app /opt/bgutil
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh && chown node:node /app/docker-entrypoint.sh
 USER node
 
 EXPOSE 8787
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+ (process.env.PORT||8787) +'/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
-CMD ["node", "dist/server.js"]
+CMD ["sh", "/app/docker-entrypoint.sh"]
