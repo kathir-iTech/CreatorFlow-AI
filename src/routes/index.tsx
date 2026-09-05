@@ -120,6 +120,10 @@ function Index() {
   const handleSubmit = useCallback((u: string) => {
     setUrl(u);
     setSubmittedUrl(u);
+    // New video = clean pipeline: drop the previous transcript/SEO context so
+    // nothing from the old video lingers (Part 7/8 row 15).
+    setTranscript("");
+    setCaptionsResult(null);
     setTab("captions");
   }, []);
 

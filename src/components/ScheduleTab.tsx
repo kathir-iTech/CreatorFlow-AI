@@ -114,23 +114,29 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 export function ScheduleTab() {
   const [posts, setPosts] = useState<ScheduledPost[]>(loadPosts);
   const [stats, setStats] = useState<ChannelStats | null>(null);
+  const [statsError, setStatsError] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newDate, setNewDate] = useState("");
   const [newCategory, setNewCategory] = useState("Tutorial");
   const [showAdd, setShowAdd] = useState(false);
 
-  // Persist
+  // Persist (storage may be blocked in private mode — savePosts already guards)
   useEffect(() => {
     savePosts(posts);
   }, [posts]);
 
-  // Fetch demo stats
-  useEffect(() => {
+  // Fetch demo stats — with a real error state + retry, not a silent swallow.
+  const loadStats = useCallback(() => {
+    setStatsError(false);
     api
       .channelStats()
       .then(setStats)
-      .catch(() => {});
+      .catch(() => setStatsError(true));
   }, []);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
 
   const addPost = useCallback(() => {
     if (!newTitle.trim() || !newDate) return;
@@ -323,6 +329,18 @@ export function ScheduleTab() {
       )}
 
       {/* Channel stats */}
+      {statsError && !stats && (
+        <Card className="glass border-destructive/30">
+          <CardContent className="flex items-center justify-between gap-3 p-4">
+            <p className="text-xs text-muted-foreground">
+              Channel stats are unavailable right now (the server may be waking up).
+            </p>
+            <Button variant="outline" size="sm" onClick={loadStats}>
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      )}
       {stats && (
         <>
           {/* Stats overview */}

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Copy, Check, Loader2, AlertCircle, Sparkles, RefreshCw, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { api, friendlyError } from "@/lib/api";
+import { useSlowHint } from "@/lib/useSlowHint";
 import { toast } from "sonner";
 
 export type SeoResult = {
@@ -40,6 +41,10 @@ export function SeoTab({ transcript, videoTitle }: { transcript: string; videoTi
   const [selectedTitle, setSelectedTitle] = useState(0);
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  const slow = useSlowHint(loading);
+  // New transcript = new video: drop the old result so nothing lingers
+  // (Part 7/8 row 15 — no state leakage between videos).
+  const seenTranscript = useRef("");
 
   const generate = useCallback(async () => {
     if (!transcript.trim()) return;
@@ -47,24 +52,39 @@ export function SeoTab({ transcript, videoTitle }: { transcript: string; videoTi
     setError(null);
     try {
       const data = await api.seo(transcript, videoTitle);
+      // Ignore the response if the transcript changed mid-flight (race guard).
+      if (seenTranscript.current !== transcript) return;
       setResult(data);
       setSelectedTitle(0);
       setDescription(data.description);
       setTags(data.tags);
     } catch (e) {
+      if (seenTranscript.current !== transcript) return;
       const err = friendlyError(e);
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (seenTranscript.current === transcript) setLoading(false);
     }
   }, [transcript, videoTitle]);
 
-  // Auto-generate when transcript is available
+  // Auto-generate when the transcript first arrives AND whenever a NEW
+  // transcript replaces it (previously only the first video ever generated).
   useEffect(() => {
-    if (transcript.trim() && !result && !loading) {
+    if (!transcript.trim()) {
+      // Pipeline reset (new URL submitted, captions not back yet) — clear stale output.
+      if (seenTranscript.current !== "") {
+        seenTranscript.current = "";
+        setResult(null);
+        setError(null);
+      }
+      return;
+    }
+    if (seenTranscript.current !== transcript) {
+      seenTranscript.current = transcript;
+      setResult(null);
       generate();
     }
-  }, [transcript, result, loading, generate]);
+  }, [transcript, generate]);
 
   const removeTag = (idx: number) => {
     setTags((prev) => prev.filter((_, i) => i !== idx));
@@ -118,6 +138,12 @@ export function SeoTab({ transcript, videoTitle }: { transcript: string; videoTi
           <CardContent className="p-8 text-center">
             <Loader2 className="mx-auto h-6 w-6 animate-spin text-violet-400" />
             <p className="mt-2 text-sm text-muted-foreground">Generating SEO metadata...</p>
+            {slow && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Still working — the server may be waking up (up to a minute on the free
+                tier).
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

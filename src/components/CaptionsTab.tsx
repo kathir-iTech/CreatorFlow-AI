@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Captions, Download, Loader2, RefreshCw, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { api, friendlyError, type CaptionSegment, type CaptionsResult } from "@/lib/api";
+import { useSlowHint } from "@/lib/useSlowHint";
 import {
   captionsToPlainText,
   captionsToSrt,
@@ -29,6 +30,10 @@ export function CaptionsTab({
   const [segments, setSegments] = useState<CaptionSegment[]>([]);
   const [error, setError] = useState<{ title: string; message: string } | null>(null);
   const lastFetchedUrl = useRef<string>("");
+  // Race guard (Part 7): rapid successive submissions must not let a slow
+  // first response overwrite the newer request's result.
+  const requestSeq = useRef(0);
+  const slow = useSlowHint(status === "loading");
 
   const fetchCaptions = useCallback(
     async (targetUrl: string) => {
@@ -37,13 +42,15 @@ export function CaptionsTab({
         toast.warning("Paste a YouTube link first");
         return;
       }
+      const seq = ++requestSeq.current;
+      lastFetchedUrl.current = u;
       setStatus("loading");
       setError(null);
       try {
         const data = await api.captions(u);
+        if (requestSeq.current !== seq) return; // stale — a newer request won
         setResult(data);
         setSegments(data.captions);
-        lastFetchedUrl.current = u;
         setStatus("done");
         const label =
           data.source === "native" ? "Native YouTube captions" : "Groq Whisper transcription";
@@ -52,6 +59,7 @@ export function CaptionsTab({
         });
         onTranscript?.(captionsToPlainText(data.captions), data);
       } catch (e) {
+        if (requestSeq.current !== seq) return; // stale — a newer request won
         const f = friendlyError(e);
         setError({ title: f.title, message: f.message });
         setStatus("error");
@@ -61,13 +69,15 @@ export function CaptionsTab({
     [onTranscript],
   );
 
-  // Auto-fetch when the shared top-level URL is submitted (but only once per URL).
+  // Auto-fetch when the shared top-level URL is submitted — every NEW url
+  // refetches (no stale transcript lingers) and in-flight races resolve to
+  // the latest submission, never the slowest response.
   useEffect(() => {
     const u = url.trim();
-    if (u && u !== lastFetchedUrl.current && status === "idle") {
+    if (u && u !== lastFetchedUrl.current) {
       void fetchCaptions(u);
     }
-  }, [url, status, fetchCaptions]);
+  }, [url, fetchCaptions]);
 
   const updateLine = (idx: number, text: string) => {
     setSegments((prev) => prev.map((s, i) => (i === idx ? { ...s, text } : s)));
@@ -133,6 +143,12 @@ export function CaptionsTab({
                 <Skeleton className="h-4 flex-1" />
               </div>
             ))}
+            {slow && (
+              <p className="pt-2 text-center text-xs text-muted-foreground">
+                Still working — the server may be waking up (this can take up to a minute
+                on the free tier). Hang tight.
+              </p>
+            )}
           </div>
         )}
 

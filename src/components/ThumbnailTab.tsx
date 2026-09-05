@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { api, friendlyError } from "@/lib/api";
+import { useSlowHint } from "@/lib/useSlowHint";
 import { toast } from "sonner";
 
 type ThumbnailFrame = {
@@ -62,28 +63,40 @@ export function ThumbnailTab({ url }: { url: string }) {
   const [textPos, setTextPos] = useState({ x: 0.5, y: 0.85 }); // normalized 0-1
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dragging, setDragging] = useState(false);
+  // Race guard (Part 7): a slow first extraction must not overwrite the newer one.
+  const requestSeq = useRef(0);
+  const lastUrl = useRef("");
+  const slow = useSlowHint(loading);
 
   const extract = useCallback(async () => {
-    if (!url.trim()) return;
+    const u = url.trim();
+    if (!u) return;
+    const seq = ++requestSeq.current;
+    lastUrl.current = u;
     setLoading(true);
     setError(null);
     try {
-      const data = await api.thumbnails(url);
+      const data = await api.thumbnails(u);
+      if (requestSeq.current !== seq) return; // stale — a newer request won
       setResult(data);
       setSelected(0);
     } catch (e) {
+      if (requestSeq.current !== seq) return; // stale — a newer request won
       setError(friendlyError(e).message);
     } finally {
-      setLoading(false);
+      if (requestSeq.current === seq) setLoading(false);
     }
   }, [url]);
 
-  // Auto-extract
+  // Auto-extract on submit AND on every new URL (previously only the first
+  // video ever extracted — stale frames lingered for the second video).
   useEffect(() => {
-    if (url.trim() && !result && !loading) {
+    const u = url.trim();
+    if (u && u !== lastUrl.current) {
+      setResult(null);
       extract();
     }
-  }, [url, result, loading, extract]);
+  }, [url, extract]);
 
   // Draw canvas whenever selection/text/style changes
   useEffect(() => {
@@ -238,6 +251,12 @@ export function ThumbnailTab({ url }: { url: string }) {
             <p className="mt-2 text-sm text-muted-foreground">
               Downloading video and extracting keyframes...
             </p>
+            {slow && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Still working — the server may be waking up (up to a minute on the free
+                tier).
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
