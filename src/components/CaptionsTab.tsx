@@ -57,11 +57,17 @@ export function CaptionsTab({
         setSegments(data.captions);
         setStatus("done");
         onStatusChange?.("done");
-        const label =
-          data.source === "native" ? "Native YouTube captions" : "Groq Whisper transcription";
-        toast.success(label, {
-          description: `${data.captions.length} lines${data.isAuto ? " (auto-generated)" : ""} — ready to edit.`,
-        });
+        if ((data as { demo?: boolean }).demo) {
+          toast.success("Demo transcript (YouTube temporarily blocked)", {
+            description: `${data.captions.length} lines — live captions will return when unblocked. Try another video.`,
+          });
+        } else {
+          const label =
+            data.source === "native" ? "Native YouTube captions" : "Groq Whisper transcription";
+          toast.success(label, {
+            description: `${data.captions.length} lines${data.isAuto ? " (auto-generated)" : ""} — ready to edit.`,
+          });
+        }
         onTranscript?.(captionsToPlainText(data.captions), data);
       } catch (e) {
         if (requestSeq.current !== seq) return; // stale — a newer request won
@@ -114,6 +120,11 @@ export function CaptionsTab({
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
+            {result && (result as { demo?: boolean }).demo && (
+              <Badge variant="secondary" className="bg-amber-500/20 text-amber-300 border-amber-500/30">
+                DEMO FALLBACK
+              </Badge>
+            )}
             {result && (
               <Badge variant={result.source === "native" ? "default" : "secondary"}>
                 {result.source === "native" ? "native captions" : "Groq Whisper"}
@@ -183,6 +194,11 @@ export function CaptionsTab({
 
         {status === "done" && result && (
           <>
+            {(result as { demo?: boolean }).demo && (
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                Demo transcript — YouTube is currently blocking this IP for live captions. The pipeline is working; try another video for live data, or use this demo to test SEO/thumbnail/schedule.
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 size="sm"

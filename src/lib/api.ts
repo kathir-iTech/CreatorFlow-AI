@@ -5,7 +5,9 @@
 
 const RAW_BASE =
   (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_BASE_URL) ||
-  "http://localhost:8787";
+  (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1"
+    ? "https://creatorflow-ai-backend-lin3.onrender.com"
+    : "http://localhost:8787");
 
 export const API_BASE_URL: string = String(RAW_BASE).replace(/\/+$/, "");
 
@@ -33,37 +35,53 @@ export class ApiClientError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  let res: Response;
-  try {
-    res = await fetch(`${API_BASE_URL}${path}`, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...(init?.headers ?? {}),
-      },
-    });
-  } catch (e) {
-    throw new ApiClientError(0, {
-      code: "NETWORK",
-      message: "Cannot reach the MediaHub API. Check your connection or backend URL.",
-    });
+async function request<T>(path: string, init?: RequestInit, retry = 1): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= retry; attempt++) {
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE_URL}${path}`, {
+        ...init,
+        headers: {
+          "Content-Type": "application/json",
+          ...(init?.headers ?? {}),
+        },
+      });
+    } catch (e) {
+      lastErr = new ApiClientError(0, {
+        code: "NETWORK",
+        message: "Cannot reach the MediaHub API. Check your connection or backend URL.",
+      });
+      if (attempt < retry) {
+        await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+        continue;
+      }
+      throw lastErr;
+    }
+    const text = await res.text();
+    let body: any = null;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      // non-JSON
+    }
+    if (!res.ok) {
+      const err: ApiError = (body && body.error) || {
+        code: `HTTP_${res.status}`,
+        message: `Request failed (${res.status})`,
+      };
+      const apiErr = new ApiClientError(res.status, err);
+      // Retry once for 502/503/429 (transient Render cold-start / rate-limit)
+      if (attempt < retry && (res.status === 502 || res.status === 503 || res.status === 429) && apiErr.retryable !== false) {
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        lastErr = apiErr;
+        continue;
+      }
+      throw apiErr;
+    }
+    return (body?.data ?? body) as T;
   }
-  const text = await res.text();
-  let body: any = null;
-  try {
-    body = text ? JSON.parse(text) : null;
-  } catch {
-    // non-JSON
-  }
-  if (!res.ok) {
-    const err: ApiError = (body && body.error) || {
-      code: `HTTP_${res.status}`,
-      message: `Request failed (${res.status})`,
-    };
-    throw new ApiClientError(res.status, err);
-  }
-  return (body?.data ?? body) as T;
+  throw lastErr as ApiClientError;
 }
 
 // ---------------- Types mirroring the backend contract ----------------
@@ -184,6 +202,7 @@ export type CaptionsResult = {
   captions: CaptionSegment[];
   srt: string;
   vtt: string;
+  demo?: boolean;
 };
 
 export type SeoChapter = {
