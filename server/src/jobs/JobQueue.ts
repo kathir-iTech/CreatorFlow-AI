@@ -57,7 +57,15 @@ export class InMemoryJobQueue implements JobQueueAdapter {
       logger.debug({ jobId: task.id, active: this.active.size, queued: this.queue.length }, "queue: starting task");
       task
         .run(ctrl.signal)
-        .catch((err) => task.onError(err))
+        .catch((err) => {
+          // onError must never throw: it runs outside any request context,
+          // so a throw here becomes an unhandled rejection, not a 500.
+          try {
+            task.onError(err);
+          } catch (handlerErr) {
+            logger.error({ jobId: task.id, err, handlerErr }, "job onError handler threw");
+          }
+        })
         .finally(() => {
           this.active.delete(task.id);
           this.drain();

@@ -14,8 +14,7 @@ function HistoryPage() {
         </p>
       </div>
       <div className="glass mx-auto max-w-3xl rounded-3xl p-10 text-center text-sm text-muted-foreground">
-        No history yet — run the pipeline on the Studio tab and your downloads will appear
-        here.
+        No history yet — run the pipeline on the Studio tab and your downloads will appear here.
       </div>
     </div>
   );

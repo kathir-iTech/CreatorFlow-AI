@@ -51,6 +51,8 @@ export function parseNetscapeCookies(contents: string): CookieExpiry[] {
     const parts = rawLine.split("\t");
     if (parts.length < 7) continue;
     const [domain, , , , expiryStr, name] = parts;
+    // Malformed line (empty domain/name): skip rather than recording junk.
+    if (!domain || !name) continue;
     const expirySec = Number(expiryStr);
     const sessionOnly = !Number.isFinite(expirySec) || expirySec === 0;
     const expiresAtMs = sessionOnly ? null : expirySec * 1000;

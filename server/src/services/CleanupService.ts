@@ -5,10 +5,13 @@ import { ensureTmpRoot, safeRemove } from "@/utils/tmp.js";
 import { jobStore } from "@/jobs/JobStore.js";
 import { logger } from "@/logging/logger.js";
 
+// node-cron v4 no longer exposes a `cron` namespace type; infer from schedule().
+type ScheduledTask = ReturnType<typeof cron.schedule>;
+
 const ORPHAN_TTL_MS = 30 * 60_000; // 30 min
 const JOB_RECORD_TTL_MS = 60 * 60_000; // 1h after finished
 
-let task: cron.ScheduledTask | null = null;
+let task: ScheduledTask | null = null;
 
 async function sweepTmp(): Promise<void> {
   const root = await ensureTmpRoot();

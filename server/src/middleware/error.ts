@@ -11,9 +11,17 @@ export function notFoundHandler(req: Request, res: Response): void {
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction): void {
   const requestId = req.id;
+
+  // Headers already streaming (e.g. /stream mid-pipe): JSON is impossible —
+  // destroy instead of throwing ERR_HTTP_HEADERS_SENT, which would surface
+  // to the client as a raw proxy-style 502 with no body.
+  if (res.headersSent) {
+    logger.warn({ requestId, err }, "Error after headers sent, destroying response");
+    res.destroy();
+    return;
+  }
 
   if (err instanceof AppError) {
     logger.warn({ requestId, code: err.code, msg: err.message }, "AppError");

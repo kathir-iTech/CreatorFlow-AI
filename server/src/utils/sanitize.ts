@@ -1,5 +1,7 @@
 export function sanitizeFilename(name: string, fallback = "media"): string {
+  // Intentional: strip ASCII control chars + Windows-illegal filename chars.
   const cleaned = name
+    // eslint-disable-next-line no-control-regex
     .replace(/[\\/:*?"<>|\x00-\x1f]/g, "_")
     .replace(/\s+/g, " ")
     .trim()

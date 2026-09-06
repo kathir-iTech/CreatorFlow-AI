@@ -4,7 +4,12 @@
   "private": true,
   "description": "MediaHub Pro backend — Express + yt-dlp + FFmpeg",
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
+  "overrides": {
+    "qs": "^6.16.0"
+  },
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsup src/server.ts --format esm --target node20 --clean --sourcemap",
@@ -12,7 +17,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src test"
   },
   "dependencies": {
     "compression": "^1.7.5",
@@ -23,7 +28,7 @@
     "express-rate-limit": "^7.4.1",
     "helmet": "^8.0.0",
     "lru-cache": "^11.0.2",
-    "node-cron": "^3.0.3",
+    "node-cron": "^4.6.0",
     "pino": "^9.5.0",
     "pino-http": "^10.3.0",
     "ulid": "^2.3.0",
@@ -31,6 +36,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/compression": "^1.7.5",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
@@ -38,11 +44,14 @@
     "@types/node-cron": "^3.0.11",
     "@types/supertest": "^6.0.2",
     "@types/which": "^3.0.4",
+    "eslint": "^10.9.0",
+    "globals": "^17.11.0",
     "pino-pretty": "^13.0.0",
     "supertest": "^7.0.0",
     "tsup": "^8.3.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
+    "typescript-eslint": "^8.67.0",
     "vitest": "^2.1.8"
   }
 }

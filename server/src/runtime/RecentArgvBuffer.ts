@@ -63,6 +63,7 @@ export function redactArgv(argv: string[]): string[] {
   const out = argv.slice();
   for (let i = 0; i < out.length; i++) {
     const a = out[i];
+    if (a === undefined) continue;
     const next = out[i + 1];
     if (a === "--proxy" && next) {
       out[i + 1] = redactProxy(next);

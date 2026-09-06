@@ -132,3 +132,16 @@ No code, cookie refresh, or token provider fixes a block that triggers
 before session state is evaluated — so we stopped chasing it (details above
 would have been diminishing returns) and made local-container demo the
 supported path (`start-demo.bat`), leaving Render live as deployment proof.
+
+## Proxy timeouts vs. app errors (read this before debugging a 502)
+
+A raw HTML 502 from production never comes from Express — every route ends
+in `errorHandler`, which always returns JSON (and destroys the response
+instead of crashing if headers already streamed). A 502 means the
+Cloudflare/Render proxy gave up first. Two known triggers: (1) the Whisper
+caption path for a long video exceeds Cloudflare's ~100s request cap while
+Express is still legitimately working (measured 104s locally for 10 min of
+audio); (2) a redeploy restarting the container mid-request. The frontend
+maps these to a retryable generic error. If a 502 needs eliminating rather
+than handling, the operation must move to the async job pattern
+(`POST /downloads` → SSE → `GET /file`), not a longer timeout.

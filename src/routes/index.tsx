@@ -16,6 +16,7 @@ import { Toaster } from "@/components/ui/sonner";
 import type { CaptionsResult } from "@/lib/api";
 
 // Code-split: each tab chunk (incl. recharts in ScheduleTab) loads only when opened.
+const FetchTab = lazy(() => import("@/components/FetchTab").then((m) => ({ default: m.FetchTab })));
 const CaptionsTab = lazy(() =>
   import("@/components/CaptionsTab").then((m) => ({ default: m.CaptionsTab })),
 );
@@ -78,17 +79,6 @@ function StepIndicator({ active }: { active: string }) {
         </div>
       ))}
     </div>
-  );
-}
-
-function PlaceholderTab({ title, body }: { title: string; body: string }) {
-  return (
-    <Card className="glass">
-      <CardContent className="p-8 text-center">
-        <div className="text-sm font-medium text-foreground">{title}</div>
-        <p className="mt-1 text-xs text-muted-foreground">{body}</p>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -174,10 +164,9 @@ function Index() {
           </TabsList>
 
           <TabsContent value="fetch" className="mt-4">
-            <PlaceholderTab
-              title="Fetch"
-              body="Video metadata + formats (existing POST /api/v1/info + /downloads flow). Paste a link above — captions start automatically."
-            />
+            <LazyPanel>
+              <FetchTab url={submittedUrl} />
+            </LazyPanel>
           </TabsContent>
           <TabsContent value="captions" className="mt-4">
             <LazyPanel>

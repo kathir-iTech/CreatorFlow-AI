@@ -123,7 +123,9 @@ export async function generateSeo(transcript: string, videoTitle?: string): Prom
         );
       }
 
-      const json = await res.json();
+      const json = (await res.json()) as {
+        choices?: Array<{ message?: { content?: unknown } }>;
+      };
       const content = json?.choices?.[0]?.message?.content;
       if (typeof content !== "string" || !content) {
         throw new Error("Empty Groq response");

@@ -32,6 +32,6 @@ describe("RecentArgvBuffer", () => {
     }
     const list = listRecentArgv();
     expect(list).toHaveLength(5);
-    expect(list[0].formatArg).toBe("bv*+ba");
+    expect(list[0]?.formatArg).toBe("bv*+ba");
   });
 });

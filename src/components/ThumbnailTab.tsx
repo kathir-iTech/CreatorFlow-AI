@@ -253,8 +253,7 @@ export function ThumbnailTab({ url }: { url: string }) {
             </p>
             {slow && (
               <p className="mt-1 text-xs text-muted-foreground">
-                Still working — the server may be waking up (up to a minute on the free
-                tier).
+                Still working — the server may be waking up (up to a minute on the free tier).
               </p>
             )}
           </CardContent>

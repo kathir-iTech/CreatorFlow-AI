@@ -46,12 +46,29 @@ streamRouter.get("/", validate(StreamQuery, "query"), async (req, res, next) => 
       `${metadata.title}.${q.kind === "audio" ? plan.audioFormat ?? "mp3" : "mp4"}`,
     );
 
+    logger.info({ provider: provider.id, command: ["yt-dlp", ...args] }, "Stream start");
+    const child = execa(ytDlp.path, args, { buffer: false, reject: false });
+    // Check BEFORE headers go out: throwing after res headers are sent would
+    // crash with ERR_HTTP_HEADERS_SENT instead of clean JSON.
+    if (!child.stdout) throw new Error("yt-dlp produced no stdout");
+
     res.setHeader("Content-Type", "application/octet-stream");
     res.setHeader("Content-Disposition", contentDispositionFilename(filename));
 
-    logger.info({ provider: provider.id, command: ["yt-dlp", ...args] }, "Stream start");
-    const child = execa(ytDlp.path, args, { buffer: false, reject: false });
-    if (!child.stdout) throw new Error("yt-dlp produced no stdout");
+    // Mid-stream yt-dlp failure can't become JSON (headers already sent) —
+    // destroy the connection and log, never throw into Express.
+    child.stdout.on("error", (err) => {
+      logger.warn({ err }, "Stream stdout error, destroying response");
+      res.destroy();
+    });
+    child.stderr?.on("data", () => undefined);
+    child.on("error", (err) => {
+      logger.warn({ err }, "Stream yt-dlp process error");
+      if (!res.writableEnded) res.destroy();
+    });
+    res.on("error", () => {
+      if (!child.killed) child.kill("SIGTERM");
+    });
     child.stdout.pipe(res);
 
     req.on("close", () => {

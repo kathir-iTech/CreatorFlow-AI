@@ -140,8 +140,7 @@ export function SeoTab({ transcript, videoTitle }: { transcript: string; videoTi
             <p className="mt-2 text-sm text-muted-foreground">Generating SEO metadata...</p>
             {slow && (
               <p className="mt-1 text-xs text-muted-foreground">
-                Still working — the server may be waking up (up to a minute on the free
-                tier).
+                Still working — the server may be waking up (up to a minute on the free tier).
               </p>
             )}
           </CardContent>

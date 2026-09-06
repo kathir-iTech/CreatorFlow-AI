@@ -69,11 +69,7 @@ function StatusPage() {
                 <TriangleAlert className="h-4 w-4" />
                 Backend unreachable — it may be waking up. Wait a moment and retry.
               </p>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => window.location.reload()}
-              >
+              <Button size="sm" variant="outline" onClick={() => window.location.reload()}>
                 Retry
               </Button>
             </div>

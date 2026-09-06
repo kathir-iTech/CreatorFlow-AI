@@ -145,8 +145,8 @@ export function CaptionsTab({
             ))}
             {slow && (
               <p className="pt-2 text-center text-xs text-muted-foreground">
-                Still working — the server may be waking up (this can take up to a minute
-                on the free tier). Hang tight.
+                Still working — the server may be waking up (this can take up to a minute on the
+                free tier). Hang tight.
               </p>
             )}
           </div>

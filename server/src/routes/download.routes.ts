@@ -73,9 +73,18 @@ downloadRouter.get("/:id/events", (req, res) => {
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders?.();
 
+  let closed = false;
   const send = (event: JobEvent) => {
-    res.write(`event: ${event.type}\n`);
-    res.write(`data: ${JSON.stringify(event)}\n\n`);
+    // Guarded: a write after client disconnect must never throw into the
+    // job emitter (which would mark jobs failed and leak listeners).
+    if (closed || res.writableEnded || res.destroyed) return;
+    try {
+      res.write(`event: ${event.type}\n`);
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    } catch (err) {
+      logger.warn({ err, jobId }, "SSE write failed, closing stream");
+      cleanup();
+    }
   };
 
   // Send current snapshot first
@@ -90,14 +99,30 @@ downloadRouter.get("/:id/events", (req, res) => {
   });
 
   const heartbeat = setInterval(() => {
-    res.write(`: ping\n\n`);
+    if (closed || res.writableEnded || res.destroyed) {
+      cleanup();
+      return;
+    }
+    try {
+      res.write(`: ping\n\n`);
+    } catch {
+      cleanup();
+    }
   }, SSE_HEARTBEAT_MS);
 
-  const cleanup = () => {
+  let cleaned = false;
+  function cleanup() {
+    if (cleaned) return;
+    cleaned = true;
+    closed = true;
     clearInterval(heartbeat);
     unsub();
-    res.end();
-  };
+    try {
+      res.end();
+    } catch {
+      // already gone — nothing to do
+    }
+  }
 
   req.on("close", cleanup);
 });

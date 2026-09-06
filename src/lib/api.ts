@@ -407,8 +407,7 @@ export function friendlyError(e: unknown): {
     if (e.code === "WHISPER_UNAVAILABLE") {
       return {
         title: "No captions + no AI fallback",
-        message:
-          "This video has no captions, and AI transcription isn't configured on the server.",
+        message: "This video has no captions, and AI transcription isn't configured on the server.",
         code: e.code,
         retryable: false,
       };

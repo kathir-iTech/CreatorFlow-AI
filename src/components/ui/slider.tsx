@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 const Slider = React.forwardRef<
   React.ElementRef<typeof SliderPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>
->(  ({ className, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledby, ...props }, ref) => (
+>(({ className, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledby, ...props }, ref) => (
   <SliderPrimitive.Root
     ref={ref}
     className={cn("relative flex w-full touch-none select-none items-center", className)}

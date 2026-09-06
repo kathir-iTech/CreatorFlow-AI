@@ -447,7 +447,7 @@ export class CaptionService {
     // Canonicalize once: ?si=, shorts, embed, music/m.youtube variants all
     // collapse to one watch URL before any provider logic sees them.
     const url = canonicalizeMediaUrl(trimmed);
-    let providerId = "youtube";
+    let providerId: string;
     try {
       providerId = providerRegistry.resolveFromUrl(url).id as string;
     } catch {

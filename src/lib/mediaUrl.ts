@@ -23,8 +23,7 @@ const SUPPORTED_HOSTS = new Set([
 ]);
 
 export type UrlCheck =
-  | { ok: true }
-  | { ok: false; reason: "empty" | "not-a-url" | "unsupported" | "playlist" };
+  { ok: true } | { ok: false; reason: "empty" | "not-a-url" | "unsupported" | "playlist" };
 
 function hostMatches(host: string): boolean {
   const h = host.toLowerCase().replace(/^www\./, "");
