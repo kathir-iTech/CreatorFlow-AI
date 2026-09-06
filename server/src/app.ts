@@ -19,6 +19,7 @@ import { debugRouter } from "@/routes/debug.routes.js";
 import { seoRouter } from "@/routes/seo.routes.js";
 import { thumbnailsRouter } from "@/routes/thumbnails.routes.js";
 import { channelStatsRouter } from "@/routes/channel-stats.routes.js";
+import { publishReadinessRouter } from "@/routes/publish-readiness.routes.js";
 
 export function createApp(): Express {
   const app = express();
@@ -60,6 +61,7 @@ export function createApp(): Express {
   app.use(`${API_PREFIX}/seo`, seoRouter);
   app.use(`${API_PREFIX}/thumbnails`, thumbnailsRouter);
   app.use(`${API_PREFIX}/channel-stats`, channelStatsRouter);
+  app.use(`${API_PREFIX}/publish-readiness`, publishReadinessRouter);
   app.use(`${API_PREFIX}/debug`, debugRouter);
 
   app.use(notFoundHandler);

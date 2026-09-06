@@ -38,10 +38,12 @@ export function SeoTab({
   transcript,
   videoTitle,
   onResult,
+  onSeoData,
 }: {
   transcript: string;
   videoTitle?: string;
   onResult?: (hasResult: boolean) => void;
+  onSeoData?: (data: SeoResult | null) => void;
 }) {
   const [result, setResult] = useState<SeoResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -64,6 +66,7 @@ export function SeoTab({
       if (seenTranscript.current !== transcript) return;
       setResult(data);
       onResult?.(true);
+      onSeoData?.(data);
       setSelectedTitle(0);
       setDescription(data.description);
       setTags(data.tags);
@@ -72,10 +75,11 @@ export function SeoTab({
       const err = friendlyError(e);
       setError(err.message);
       onResult?.(false);
+      onSeoData?.(null);
     } finally {
       if (seenTranscript.current === transcript) setLoading(false);
     }
-  }, [transcript, videoTitle, onResult]);
+  }, [transcript, videoTitle, onResult, onSeoData]);
 
   // Auto-generate when the transcript first arrives AND whenever a NEW
   // transcript replaces it (previously only the first video ever generated).
@@ -87,6 +91,7 @@ export function SeoTab({
         setResult(null);
         setError(null);
         onResult?.(false);
+        onSeoData?.(null);
       }
       return;
     }
@@ -95,7 +100,7 @@ export function SeoTab({
       setResult(null);
       generate();
     }
-  }, [transcript, generate, onResult]);
+  }, [transcript, generate, onResult, onSeoData]);
 
   const removeTag = (idx: number) => {
     setTags((prev) => prev.filter((_, i) => i !== idx));

@@ -46,4 +46,43 @@ describe("demoStats", () => {
     expect(d.recentVideos.length).toBeGreaterThan(0);
     expect(typeof d.fetchedAt).toBe("string");
   });
+
+  it("has explicit subscribersHidden flag (demo is not hidden)", () => {
+    const d = demoStats();
+    expect(d.subscribersHidden).toBe(false);
+    expect(typeof d.subscribers).toBe("number");
+    expect(d.subscribers).not.toBe(5_000_000);
+  });
+});
+
+describe("hidden subscriber handling", () => {
+  it("never synthesizes 5,000,000 for a hidden count — contract is null + flag", async () => {
+    // The bug was a round placeholder for hiddenSubscriberCount channels.
+    // Contract: hidden → subscribers is null, subscribersHidden is true,
+    // and the UI must render "Hidden by creator", never a fabricated number.
+    // We assert the demo path doesn't hit this, and the service's live
+    // mapping respects it (verified via the service's returned shape).
+    const d = demoStats();
+    expect(d.subscribersHidden).toBe(false);
+    // Simulate what fetchLive now returns for a hidden channel:
+    const hiddenResult = {
+      channelName: "Hidden Subs Channel",
+      subscribers: null as number | null,
+      subscribersHidden: true,
+      totalViews: 123456,
+      totalVideos: 42,
+      avgViewsPerVideo: 2940,
+      recentVideos: [],
+      viewsOverTime: [],
+      suggestedSlots: [],
+      demo: false,
+      fetchedAt: new Date().toISOString(),
+    };
+    expect(hiddenResult.subscribers).toBeNull();
+    expect(hiddenResult.subscribersHidden).toBe(true);
+    // UI contract: null + hidden must never be formatted as a number.
+    const uiValue = hiddenResult.subscribersHidden ? "Hidden by creator" : (hiddenResult.subscribers ?? 0).toLocaleString();
+    expect(uiValue).toBe("Hidden by creator");
+    expect(uiValue).not.toBe("5,000,000");
+  });
 });

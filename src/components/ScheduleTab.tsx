@@ -7,6 +7,7 @@ import {
   Clock,
   TrendingUp,
   Zap,
+  Sparkles,
 } from "lucide-react";
 import {
   BarChart,
@@ -95,7 +96,15 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-export function ScheduleTab() {
+export function ScheduleTab({
+  transcript,
+  seoTitle,
+  seoTags,
+}: {
+  transcript?: string;
+  seoTitle?: string;
+  seoTags?: string[];
+}) {
   const [posts, setPosts] = useState<ScheduledPost[]>(loadPosts);
   const [stats, setStats] = useState<ChannelStats | null>(null);
   const [statsError, setStatsError] = useState(false);
@@ -105,6 +114,14 @@ export function ScheduleTab() {
   const [showAdd, setShowAdd] = useState(false);
   const [channel, setChannel] = useState("");
   const [statsLoading, setStatsLoading] = useState(false);
+  const [readiness, setReadiness] = useState<{
+    topicFit: string;
+    timingFit: string;
+    supportingVideos: { title: string; views: number }[];
+    explanation: string;
+    demo: boolean;
+  } | null>(null);
+  const [readinessLoading, setReadinessLoading] = useState(false);
 
   // Persist (storage may be blocked in private mode — savePosts already guards)
   useEffect(() => {
@@ -126,6 +143,39 @@ export function ScheduleTab() {
   useEffect(() => {
     loadStats();
   }, [loadStats]);
+
+  // Publish Readiness — synthesis of this video's transcript/SEO + this
+  // channel's real history. Only runs when a channel is loaded (even demo
+  // shows the honest "insufficient data" copy). No new YouTube quota
+  // beyond what channel-stats already fetched.
+  useEffect(() => {
+    if (!transcript?.trim() || !channel.trim() || !stats) {
+      setReadiness(null);
+      return;
+    }
+    let cancelled = false;
+    setReadinessLoading(true);
+    api
+      .publishReadiness({
+        transcript,
+        title: seoTitle,
+        tags: seoTags,
+        channel: channel.trim(),
+        scheduledDate: newDate || undefined,
+      })
+      .then((r) => {
+        if (!cancelled) setReadiness(r);
+      })
+      .catch(() => {
+        if (!cancelled) setReadiness(null);
+      })
+      .finally(() => {
+        if (!cancelled) setReadinessLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [transcript, seoTitle, seoTags, channel, newDate, stats?.channelId, stats?.fetchedAt]);
 
   const addPost = useCallback(() => {
     if (!newTitle.trim() || !newDate) return;
@@ -389,13 +439,92 @@ export function ScheduleTab() {
                 </Button>
               </form>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <StatCard label="Subscribers" value={stats.subscribers.toLocaleString()} />
+                <StatCard
+                  label="Subscribers"
+                  value={
+                    stats.subscribersHidden
+                      ? "Hidden by creator"
+                      : (stats.subscribers ?? 0).toLocaleString()
+                  }
+                />
                 <StatCard label="Total Views" value={stats.totalViews.toLocaleString()} />
                 <StatCard label="Videos" value={stats.totalVideos} />
                 <StatCard label="Avg Views" value={stats.avgViewsPerVideo.toLocaleString()} />
               </div>
             </CardContent>
           </Card>
+
+          {/* Publish Readiness — synthesis of this video + this channel */}
+          {(readinessLoading || readiness) && (
+            <Card className="glass border-violet-500/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-1.5 text-sm">
+                  <Sparkles className="h-4 w-4 text-violet-400" />
+                  Publish Readiness
+                  {readiness?.demo ? (
+                    <Badge variant="secondary" className="text-[10px]">
+                      EXAMPLE DATA
+                    </Badge>
+                  ) : readiness ? (
+                    <Badge variant="default" className="text-[10px]">
+                      LIVE ANALYSIS
+                    </Badge>
+                  ) : null}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {readinessLoading && !readiness && (
+                  <p className="text-xs text-muted-foreground">Analyzing topic and timing fit…</p>
+                )}
+                {readiness && (
+                  <>
+                    <p className="text-sm leading-relaxed text-foreground">
+                      {readiness.explanation}
+                    </p>
+                    <div className="flex flex-wrap gap-2 text-[11px]">
+                      <Badge
+                        variant={readiness.topicFit === "above-average" ? "default" : "secondary"}
+                      >
+                        Topic: {readiness.topicFit}
+                      </Badge>
+                      <Badge variant={readiness.timingFit === "match" ? "default" : "secondary"}>
+                        Timing: {readiness.timingFit}
+                      </Badge>
+                    </div>
+                    {readiness.supportingVideos.length > 0 && (
+                      <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3">
+                        <div className="text-[11px] font-medium text-muted-foreground">
+                          Closest past videos
+                        </div>
+                        <ul className="mt-1 space-y-1">
+                          {readiness.supportingVideos.map((v, i) => (
+                            <li key={i} className="flex justify-between gap-2 text-xs">
+                              <span className="truncate text-foreground">{v.title}</span>
+                              <span className="shrink-0 text-muted-foreground">
+                                {v.views.toLocaleString()} views
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    <p className="text-[11px] text-muted-foreground">
+                      Based on this channel&apos;s own recent history — not a prediction.
+                    </p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
+          {/* Hint when channel is set but transcript/SEO not yet */}
+          {!readiness && !readinessLoading && channel.trim() && !transcript?.trim() && (
+            <Card className="glass">
+              <CardContent className="p-4 text-center text-xs text-muted-foreground">
+                Generate captions and SEO for this video, then readiness will compare it to{" "}
+                {channel.trim()}&apos;s history.
+              </CardContent>
+            </Card>
+          )}
 
           {/* Views over time chart */}
           <Card className="glass">

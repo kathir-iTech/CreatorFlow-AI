@@ -25,7 +25,8 @@ export interface SuggestedSlot {
 
 export interface ChannelStatsResult {
   channelName: string;
-  subscribers: number;
+  subscribers: number | null; // null when hiddenSubscriberCount is true
+  subscribersHidden: boolean;
   totalViews: number;
   totalVideos: number;
   avgViewsPerVideo: number;
@@ -40,6 +41,7 @@ export interface ChannelStatsResult {
 const DEMO: Omit<ChannelStatsResult, "fetchedAt"> = {
   channelName: "CreatorFlow Demo Channel",
   subscribers: 12_480,
+  subscribersHidden: false,
   totalViews: 1_847_220,
   totalVideos: 64,
   avgViewsPerVideo: 28_863,
@@ -162,6 +164,7 @@ interface ChannelsResponse {
     snippet?: { title?: string };
     statistics?: {
       subscriberCount?: string;
+      hiddenSubscriberCount?: boolean;
       viewCount?: string;
       videoCount?: string;
     };
@@ -220,9 +223,14 @@ async function fetchLive(channel: string, key: string): Promise<ChannelStatsResu
   }));
   const totalViews = num(item.statistics?.viewCount);
   const totalVideos = num(item.statistics?.videoCount);
+  const hidden = !!item.statistics?.hiddenSubscriberCount;
+  // Verify: subscriberCount is absent/"0" when hidden; never synthesize a
+  // round placeholder. See PublishReadiness prompt — 5,000,000 was that tell.
+  const subscribers = hidden ? null : num(item.statistics?.subscriberCount);
   return {
     channelName: item.snippet?.title ?? trimmed,
-    subscribers: num(item.statistics?.subscriberCount),
+    subscribers,
+    subscribersHidden: hidden,
     totalViews,
     totalVideos,
     avgViewsPerVideo: totalVideos > 0 ? Math.round(totalViews / totalVideos) : 0,

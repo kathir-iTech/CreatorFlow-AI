@@ -150,6 +150,7 @@ function Index() {
   const [tab, setTab] = useState("captions");
   const [transcript, setTranscript] = useState("");
   const [captionsResult, setCaptionsResult] = useState<CaptionsResult | null>(null);
+  const [seoResult, setSeoResult] = useState<{ titles: string[]; tags: string[] } | null>(null);
   // Live pipeline statuses driving the step indicator (real completions,
   // not tab position).
   const [fetchState, setFetchState] = useState<StepState>("idle");
@@ -163,6 +164,7 @@ function Index() {
     // nothing from the old video lingers (Part 7/8 row 15).
     setTranscript("");
     setCaptionsResult(null);
+    setSeoResult(null);
     setFetchState("idle");
     setCaptionsState("idle");
     setSeoState("idle");
@@ -190,6 +192,10 @@ function Index() {
 
   const handleSeoResult = useCallback((hasResult: boolean) => {
     setSeoState(hasResult ? "done" : "idle");
+  }, []);
+
+  const handleSeoData = useCallback((data: { titles: string[]; tags: string[] } | null) => {
+    setSeoResult(data ? { titles: data.titles, tags: data.tags } : null);
   }, []);
 
   const stepStates: Record<string, StepState> = {
@@ -258,6 +264,7 @@ function Index() {
                   captionsResult?.videoId ? `YouTube Video ${captionsResult.videoId}` : undefined
                 }
                 onResult={handleSeoResult}
+                onSeoData={handleSeoData}
               />
             </LazyPanel>
           </TabsContent>
@@ -268,7 +275,11 @@ function Index() {
           </TabsContent>
           <TabsContent value="schedule" className="tab-panel-enter mt-4">
             <LazyPanel label="Schedule">
-              <ScheduleTab />
+              <ScheduleTab
+                transcript={transcript}
+                seoTitle={seoResult?.titles[0]}
+                seoTags={seoResult?.tags}
+              />
             </LazyPanel>
           </TabsContent>
         </Tabs>

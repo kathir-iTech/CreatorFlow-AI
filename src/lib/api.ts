@@ -228,7 +228,8 @@ export type SuggestedSlot = {
 
 export type ChannelStats = {
   channelName: string;
-  subscribers: number;
+  subscribers: number | null;
+  subscribersHidden: boolean;
   totalViews: number;
   totalVideos: number;
   avgViewsPerVideo: number;
@@ -305,6 +306,35 @@ export const api = {
     const qs = channel?.trim() ? `?channel=${encodeURIComponent(channel.trim())}` : "";
     return request<ChannelStats>(`/api/v1/channel-stats${qs}`);
   },
+
+  publishReadiness: (body: {
+    transcript?: string;
+    title?: string;
+    tags?: string[];
+    channel?: string;
+    scheduledDate?: string;
+  }) =>
+    request<{
+      topicFit: string;
+      timingFit: string;
+      supportingVideos: {
+        title: string;
+        views: number;
+        publishedAt: string;
+        overlapScore: number;
+      }[];
+      topicFitDetail?: { matchedAvg: number; channelAvg: number; deltaPct: number };
+      timingFitDetail?: {
+        bestSlot: { day: string; hour: number } | null;
+        scheduledDay: string | null;
+      };
+      explanation: string;
+      demo: boolean;
+      channelName?: string;
+    }>("/api/v1/publish-readiness", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 
   health: async () => {
     const r = await fetch(`${API_BASE_URL}/healthz`).catch(() => null);
