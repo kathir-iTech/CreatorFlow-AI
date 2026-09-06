@@ -1,3 +1,4 @@
+# ALTERNATIVE DEPLOY — Replit (not primary; Render is primary)
 { pkgs }: {
   deps = [
     pkgs.nodejs_20

@@ -23,5 +23,9 @@ services:
         sync: false # paste single-line base64 of your Netscape cookies.txt
       - key: GROQ_API_KEY
         sync: false # from https://console.groq.com
+      - key: YOUTUBE_DATA_API_KEY
+        sync: false # Google Cloud Console → APIs & Services → YouTube Data API v3 → Credentials → Create API key (no OAuth, public data only)
+      - key: PROXY_URL
+        sync: false # e.g. http://user:pass@proxy.webshare.io:80 — residential proxy for yt-dlp when datacenter IP is blocked (optional, falls back to Piped/Cobalt)
       - key: TMP_DIR
         value: /tmp/mediahub

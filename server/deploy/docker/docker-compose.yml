@@ -1,3 +1,4 @@
+# LOCAL DEV ONLY — docker compose for local testing with separate pot-provider container (Render uses single-container ../../Dockerfile)
 services:
   pot-provider:
     image: brainicism/bgutil-yt-dlp-pot-provider:latest

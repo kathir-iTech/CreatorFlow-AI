@@ -113,6 +113,23 @@ async function main(): Promise<void> {
     logger.warn("YOUTUBE_DATA_API_KEY not set — channel stats will serve example data.");
   }
 
+  // TASK 2: one-line env-presence summary (never values) — reuse debug.routes.ts envPresence pattern
+  function envPresence(name: string) {
+    const parsed = (env as Record<string, unknown>)[name];
+    const raw = process.env[name];
+    const value = typeof parsed === "string" && parsed.length > 0 ? parsed : typeof raw === "string" ? raw : undefined;
+    return { present: typeof value === "string" && value.length > 0, length: value?.length ?? 0, source: typeof parsed === "string" && parsed.length > 0 ? "env" : raw ? "process.env" : "none" };
+  }
+  logger.info(
+    {
+      YOUTUBE_DATA_API_KEY: envPresence("YOUTUBE_DATA_API_KEY"),
+      PROXY_URL: envPresence("PROXY_URL"),
+      GROQ_API_KEY: envPresence("GROQ_API_KEY"),
+      COOKIES_TXT_BASE64: envPresence("COOKIES_TXT_BASE64"),
+    },
+    "env presence (never values)",
+  );
+
   const app = createApp();
   const server = app.listen(env.PORT, env.HOST, () => {
     logger.info({ host: env.HOST, port: env.PORT }, "HTTP server listening");

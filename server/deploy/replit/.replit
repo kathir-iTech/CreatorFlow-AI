@@ -1,3 +1,4 @@
+# ALTERNATIVE DEPLOY — Replit (not primary; Render is primary)
 run = "npm run start"
 entrypoint = "src/server.ts"
 modules = ["nodejs-20"]

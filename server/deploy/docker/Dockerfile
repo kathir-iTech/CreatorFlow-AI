@@ -1,3 +1,4 @@
+# LOCAL DEV ONLY — Docker Compose for local testing (Render uses ../../Dockerfile, Node 22 + Deno + bgutil sidecar)
 # syntax=docker/dockerfile:1.7
 
 # ---- builder ----

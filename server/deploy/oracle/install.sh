@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# ALTERNATIVE DEPLOY — Oracle Cloud (not primary; Render is primary). Kept for reference.
 set -euo pipefail
 
 # MediaHub Pro — Oracle Linux 8/9 install script.
