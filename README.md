@@ -1,5 +1,7 @@
 # CreatorFlow AI
 
+[![CI](https://github.com/kathir-iTech/CreatorFlow-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/kathir-iTech/CreatorFlow-AI/actions/workflows/ci.yml)
+
 **Paste one YouTube link, get captions, SEO, thumbnails, and a posting schedule —
 the whole pre-publish workflow automated in one pipeline.**
 
@@ -9,8 +11,8 @@ A creator finishing a video faces the same fragmented grind every upload:
 pull a transcript from one tool, draft titles/descriptions/tags in another,
 screenshot or design a thumbnail in a third, then guess at a posting time from
 a fourth. Each handoff is copy-paste busywork, and most of the tools charge
-separate subscriptions for what is really one workflow: *turn a finished video
-into a published, discoverable post.*
+separate subscriptions for what is really one workflow: _turn a finished video
+into a published, discoverable post._
 
 ## How it works
 
@@ -170,7 +172,7 @@ Same container, tunneled — not Render-hosted.
   work today, but a YouTube change can break extraction until upstream updates.
 - Whisper input is capped at 25MB of audio (~long videos fail gracefully with
   a specific message); thumbnail extraction caps at the first 2 minutes.
-- Videos with no native captions *and* no clear speech (music-only, silent)
+- Videos with no native captions _and_ no clear speech (music-only, silent)
   return "no speech detected" — correctly, not as a crash.
 - Channel stats are demo data until a YouTube Data API key is wired in.
 - The free Render tier sleeps: first request after idle can take up to a

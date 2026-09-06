@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# No Docker build or YouTube/Piped/Cobalt network calls in CI — keep this fast,
+# lint/typecheck/unit-test only. No YouTube network access from CI runners, and
+# no need to rebuild the full image (yt-dlp + ffmpeg + Deno) on every push.
+# Docker build is verified locally via `npm run build` + `tsup` and Render's own build gate.
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - working-directory: server
+        run: npm ci
+      - working-directory: server
+        run: npm run lint
+      - working-directory: server
+        run: npm run typecheck
+      - working-directory: server
+        run: npm run test
