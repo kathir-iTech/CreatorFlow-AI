@@ -32,7 +32,7 @@ WORKDIR /app
 # version delta is usually the cause (diagnosed 2026-09-05: stable 2026.08.19
 # was 17 days / 20 commits behind master while all videos failed identically).
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ffmpeg python3 python3-pip ca-certificates curl unzip \
+  && apt-get install -y --no-install-recommends ffmpeg python3 python3-pip ca-certificates curl unzip procps \
   && python3 -m pip install --break-system-packages -U --pre yt-dlp bgutil-ytdlp-pot-provider \
   && ffmpeg -version >/dev/null \
   && ffprobe -version >/dev/null \

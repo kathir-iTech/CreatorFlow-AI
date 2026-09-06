@@ -83,7 +83,16 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
       if (d.provider) errorBody.provider = d.provider;
       if (typeof d.retryable === "boolean") errorBody.retryable = d.retryable;
     }
+    // Part 2 trace: log exact status read from error and status actually set on res
+    logger.info(
+      { requestId, code: err.code, statusRead: err.status, statusType: typeof err.status, headersSentBefore: res.headersSent },
+      "errorHandler: read err.status before res.status",
+    );
     safeJson(res, err.status, { data: null, error: errorBody, requestId }, requestId);
+    logger.info(
+      { requestId, code: err.code, statusSent: err.status, resStatusCodeAfter: res.statusCode, headersSentAfter: res.headersSent },
+      "errorHandler: after res.status, res.statusCode readback",
+    );
     return;
   }
 

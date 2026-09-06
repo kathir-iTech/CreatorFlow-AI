@@ -354,11 +354,25 @@ async function transcribeWithWhisper(rawUrl: string, providerId: string): Promis
   } catch (err) {
     // Granular: failure is upstream of transcription — audio was never downloadable.
     // Includes timeout case above: err.message contains "Whisper metadata timeout" or AbortError
+    // Part 2 trace: preserve original BOT_CHECK 422 instead of wrapping to 502 — the 422→502
+    // gap was because BOT_CHECK (422, correct per AppError) was re-thrown as AUDIO_DOWNLOAD_FAILED (502).
+    // That made pino-http log 502 while the constructed AppError log showed 422.
+    if (err instanceof AppError && err.code === "BOT_CHECK") {
+      logger.warn({ err, providerId, url, preserved: true }, "whisper fallback: preserving BOT_CHECK 422 (not wrapping to 502)");
+      throw err;
+    }
     const detail = err instanceof Error ? err.message : String(err);
     const isTimeout = detail.includes("Whisper metadata timeout") || (ac?.signal.aborted ?? false) || (err as { name?: string })?.name === "AbortError" || (err as { code?: string })?.code === "ABORT_ERR";
     logger.warn({ err, providerId, url, isTimeout }, "whisper fallback: audio metadata/download setup failed");
     if (isTimeout) {
       logMemory("whisper:metadata:timeout", { providerId });
+      // Timeout due to bot-check retry budget — treat as BOT_CHECK 422, not generic 502, so client gets 422
+      throw new AppError(
+        "BOT_CHECK",
+        `YouTube bot-check timeout after 8s — retry budget exceeded (${detail})`,
+        422,
+        { error: "bot_block", provider: providerId, retryable: true },
+      );
     }
     throw new AppError(
       "AUDIO_DOWNLOAD_FAILED",
@@ -374,6 +388,10 @@ async function transcribeWithWhisper(rawUrl: string, providerId: string): Promis
       const result = await ytDlpEngine.download({ plan, workDir, jobId: `caps-${Date.now()}` });
       filePath = result.filePath;
     } catch (err) {
+      if (err instanceof AppError && err.code === "BOT_CHECK") {
+        logger.warn({ err, providerId, url, preserved: true }, "whisper audio download: preserving BOT_CHECK 422");
+        throw err;
+      }
       const detail = err instanceof Error ? err.message : String(err);
       logger.warn({ err, providerId, url }, "whisper fallback: audio download failed");
       throw new AppError(
