@@ -1,4 +1,5 @@
 import { env } from "@/config/env.js";
+import { ensureBgutilSidecar } from "./BgutilManager.js";
 
 export interface PotProbeResult {
   url: string;
@@ -40,6 +41,10 @@ async function tryFetch(url: string, timeoutMs: number) {
 }
 
 export async function probePotProvider(): Promise<PotProbeResult> {
+  // Lazy-start sidecar if BGUTIL_LAZY=1 — first probe will cold-start it (~2-3s)
+  if (process.env.BGUTIL_LAZY === "1") {
+    await ensureBgutilSidecar().catch(() => {});
+  }
   const base = env.YOUTUBE_GETPOT_BASE_URL.replace(/\/$/, "");
   const ping = `${base}/ping`;
   const attempts = [ping, base];

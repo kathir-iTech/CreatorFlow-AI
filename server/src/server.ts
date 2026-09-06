@@ -9,6 +9,7 @@ import { ensureTmpRoot } from "./utils/tmp.js";
 import { cleanupService } from "./services/CleanupService.js";
 import { startCookieCanary } from "./runtime/CookieCanary.js";
 import { probePotProvider } from "./runtime/PotProviderProbe.js";
+import { logMemory } from "./utils/memory.js";
 
 function getProxyStatus(url?: string) {
   if (!url) return { configured: false as const };
@@ -34,6 +35,7 @@ async function main(): Promise<void> {
     },
     "Booting MediaHub Pro API",
   );
+  logMemory("boot:start");
 
   await ensureTmpRoot();
   detectCookiesPath();
@@ -72,6 +74,11 @@ async function main(): Promise<void> {
   // PO-token sidecar check — LOUD by design. A missing/unreachable sidecar
   // used to fail silently (yt-dlp fell back to no-token extraction and died
   // with generic 403s). This line tells every deploy's story in the logs.
+  // Memory note: sidecar is a permanently-resident Node (~60-90 MB RSS) + Deno
+  // (~30-50 MB) — ~90-140 MB baseline continuously, even idle. See Step 2 audit:
+  // on 512 MB free tier this is ~18-27% of the budget before any yt-dlp/ffmpeg.
+  // Consider lazy-start (spawn on first token-needing request, idle-timeout kill)
+  // if baseline pressure is too high — measured below.
   try {
     const pot = await probePotProvider();
     if (pot.reachable) {
@@ -88,6 +95,7 @@ async function main(): Promise<void> {
   } catch (err) {
     logger.warn({ err }, "PO token sidecar probe crashed");
   }
+  logMemory("boot:sidecar-probed");
 
   // Part 2 — runtime verification WITHOUT printing the key itself. A missing
   // key used to surface only when a user hit captions/SEO; now it's visible
@@ -108,6 +116,7 @@ async function main(): Promise<void> {
   const app = createApp();
   const server = app.listen(env.PORT, env.HOST, () => {
     logger.info({ host: env.HOST, port: env.PORT }, "HTTP server listening");
+    logMemory("boot:listening", { port: env.PORT });
   });
 
   const shutdown = (signal: NodeJS.Signals) => {

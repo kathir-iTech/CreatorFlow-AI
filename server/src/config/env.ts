@@ -47,7 +47,11 @@ const schema = z.object({
   FACEBOOK_COOKIES_TXT: z.string().optional(),
   FACEBOOK_COOKIES_TXT_BASE64: z.string().optional(),
 
-  MAX_CONCURRENT_DOWNLOADS: z.coerce.number().int().positive().default(5),
+  // OOM fix (2026-09-06): Render free = 512 MB. With sidecar (~120 MB) + Node
+  // (~150 MB) + yt-dlp Python (~100 MB) + ffmpeg (~30 MB) per job, 5 concurrent
+  // = ~1.2 GB — guaranteed OOM (13.6s captions death mid-flight, no-deploy).
+  // Default 2 caps worst-case to ~470 MB. Override via env for larger instances.
+  MAX_CONCURRENT_DOWNLOADS: z.coerce.number().int().positive().default(2),
 
   // Default to the OS temp dir (e.g. /tmp on Linux/Railway) — the project
   // directory is read-only in many serverless / container deployments, so

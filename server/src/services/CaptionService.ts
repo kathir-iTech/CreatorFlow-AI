@@ -8,6 +8,7 @@
 import { execa } from "execa";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { openAsBlob } from "node:fs";
 import path from "node:path";
 import which from "which";
 import { env } from "@/config/env.js";
@@ -20,6 +21,8 @@ import { infoService } from "./InfoService.js";
 import { ytDlpEngine } from "@/engines/downloader/YtDlpEngine.js";
 import { canonicalizeMediaUrl, normalizeYoutubeUrl } from "@/utils/youtube.js";
 import { createJobDir, safeRemove } from "@/utils/tmp.js";
+import { logMemory } from "@/utils/memory.js";
+import { ytdlpLimiter } from "@/utils/concurrency.js";
 import {
   parseJson3,
   parseTimedtextXml,
@@ -241,26 +244,28 @@ async function fetchNativeViaYtDlp(url: string, videoId?: string): Promise<Capti
     logger.debug("yt-dlp not found — skipping yt-dlp subtitle dump");
     return null;
   }
-  const workDir = await createJobDir(`caps-${Date.now()}`);
-  try {
-    const cookies = getCookiesPathFor("youtube");
-    const args = [
-      "--skip-download",
-      "--write-sub",
-      "--write-auto-sub",
-      "--sub-langs",
-      "en.*",
-      "--sub-format",
-      "vtt",
-      "--no-playlist",
-      "--no-warnings",
-      "--no-call-home",
-      "-o",
-      "cap.%(ext)s",
-    ];
-    if (cookies) args.push("--cookies", cookies);
-    args.push(url);
-    const res = await execa(ytDlpPath, args, { cwd: workDir, timeout: 90_000, reject: false });
+  return ytdlpLimiter.run(async () => {
+    logMemory("caption:yt-dlp-subs:start", { videoId });
+    const workDir = await createJobDir(`caps-${Date.now()}`);
+    try {
+      const cookies = getCookiesPathFor("youtube");
+      const args = [
+        "--skip-download",
+        "--write-sub",
+        "--write-auto-sub",
+        "--sub-langs",
+        "en.*",
+        "--sub-format",
+        "vtt",
+        "--no-playlist",
+        "--no-warnings",
+        "--no-call-home",
+        "-o",
+        "cap.%(ext)s",
+      ];
+      if (cookies) args.push("--cookies", cookies);
+      args.push(url);
+      const res = await execa(ytDlpPath, args, { cwd: workDir, timeout: 90_000, reject: false });
     const files = (await readdir(workDir)).filter((f) => f.endsWith(".vtt"));
     if (files.length === 0) {
       // No subs at all — this video genuinely has none (or all fetches failed).
@@ -302,7 +307,9 @@ async function fetchNativeViaYtDlp(url: string, videoId?: string): Promise<Capti
     return null;
   } finally {
     await safeRemove(workDir);
+    logMemory("caption:yt-dlp-subs:exit", { videoId });
   }
+  });
 }
 
 /** Path 2 — Groq Whisper fallback. Downloads audio via existing engine, transcribes free-tier. */
@@ -358,12 +365,27 @@ async function transcribeWithWhisper(rawUrl: string, providerId: string): Promis
         422,
       );
     }
-    const buf = await readFile(filePath);
+    logMemory("whisper:pre-upload", { sizeMB: (size / 1048576).toFixed(1) });
+    // FIX (Step 3): Stream from disk via openAsBlob instead of readFile → Buffer → Blob.
+    // Before: readFile(file) held entire audio (up to 25 MB) as Buffer + Blob copy (~50 MB heap spike)
+    // After: openAsBlob creates a lazily-read Blob backed by file handle, streamed by fetch.
+    let fileBlob: Blob;
+    try {
+      fileBlob = await openAsBlob(filePath);
+    } catch {
+      // Fallback for older Node without openAsBlob — still avoid double-copy
+      const buf = await readFile(filePath);
+      fileBlob = new Blob([buf], { type: "audio/mpeg" });
+    }
     const form = new FormData();
-    form.append("file", new Blob([new Uint8Array(buf)], { type: "audio/mpeg" }), "audio.mp3");
+    // openAsBlob's Blob already has correct type/size, but ensure filename via File
+    // Using File with known name ensures Groq receives correct multipart filename.
+    const audioFile = new File([fileBlob], "audio.mp3", { type: "audio/mpeg" });
+    form.append("file", audioFile);
     form.append("model", "whisper-large-v3-turbo");
     form.append("response_format", "verbose_json");
     form.append("temperature", "0");
+    logMemory("whisper:post-blob", { sizeMB: (size / 1048576).toFixed(1) });
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 5 * 60_000);
     let groqRes: Response;

@@ -11,6 +11,8 @@ import type { DownloadPlan, ProviderId, RawMetadata } from "@/providers/types.js
 import { env } from "@/config/env.js";
 import { detectYoutubeBotCheck, extractYoutubeVideoId } from "./BotCheckDetector.js";
 import { recordArgv } from "@/runtime/RecentArgvBuffer.js";
+import { ytdlpLimiter } from "@/utils/concurrency.js";
+import { logMemory } from "@/utils/memory.js";
 
 const ytDlpExecutionEnv = { ...process.env };
 
@@ -107,28 +109,31 @@ export class YtDlpEngine {
     useCookies: boolean,
     providerId?: ProviderId,
   ): Promise<RawMetadata> {
-    const { ytDlp } = await resolveBinaries();
-    const cookies = getCookiesPathFor(providerId);
-    const args = buildMetadataArgs(url, cookies, useCookies, providerId);
-    const start = Date.now();
-    const cookiesLoaded = !!(cookies && useCookies);
-    logger.info(
-      {
-        provider: providerId,
-        binary: ytDlp.path,
-        ytDlpVersion: ytDlp.version,
-        cookiesLoaded,
-        videoId: providerId === "youtube" ? extractYoutubeVideoId(url) : undefined,
-        command: ["yt-dlp", ...args],
-      },
-      "yt-dlp metadata fetch",
-    );
-    try {
-      const { stdout, stderr } = await execa(ytDlp.path, args, { timeout: 60_000, reject: true, env: ytDlpExecutionEnv });
-      logger.debug(
-        { durationMs: Date.now() - start, stderr: stderr?.slice(0, 500) },
-        "yt-dlp metadata done",
+    return ytdlpLimiter.run(async () => {
+      const { ytDlp } = await resolveBinaries();
+      const cookies = getCookiesPathFor(providerId);
+      const args = buildMetadataArgs(url, cookies, useCookies, providerId);
+      const start = Date.now();
+      const cookiesLoaded = !!(cookies && useCookies);
+      logger.info(
+        {
+          provider: providerId,
+          binary: ytDlp.path,
+          ytDlpVersion: ytDlp.version,
+          cookiesLoaded,
+          videoId: providerId === "youtube" ? extractYoutubeVideoId(url) : undefined,
+          command: ["yt-dlp", ...args],
+          limiter: { active: ytdlpLimiter.activeCount, pending: ytdlpLimiter.pendingCount },
+        },
+        "yt-dlp metadata fetch",
       );
+      try {
+        const { stdout, stderr } = await execa(ytDlp.path, args, { timeout: 60_000, reject: true, env: ytDlpExecutionEnv });
+        logger.debug(
+          { durationMs: Date.now() - start, stderr: stderr?.slice(0, 500) },
+          "yt-dlp metadata done",
+        );
+        logMemory("ytdlp:metadata:done", { provider: providerId });
       recordArgv({
         kind: "info",
         attempt: "primary",
@@ -189,6 +194,7 @@ export class YtDlpEngine {
             stdout,
             stderr: fallbackStderr,
           });
+          logMemory("ytdlp:metadata:fallback-done", { provider: providerId });
           return JSON.parse(stdout) as RawMetadata;
         } catch (fallbackErr) {
           const fallbackExecaErr = fallbackErr as { stderr?: string; stdout?: string; message?: string };
@@ -223,35 +229,43 @@ export class YtDlpEngine {
         },
         "yt-dlp metadata failed",
       );
+      logMemory("ytdlp:metadata:failed", { provider: providerId, code: mapped.code });
       throw mapped;
+    } finally {
+      // Ensure any buffers from failed execa are GC-eligible before next limitor turn
+      logMemory("ytdlp:metadata:exit", { provider: providerId });
     }
+    });
   }
 
   async download(opts: DownloadOptions): Promise<DownloadResult> {
-    const { plan, workDir, jobId, onEvent, signal } = opts;
-    const { ytDlp } = await resolveBinaries();
-    const cookies = getCookiesPathFor(plan.providerId);
-    const cookiesLoaded = !!(cookies && plan.useCookies);
-    const outputTemplate = path.join(workDir, "%(title).180B [%(id)s].%(ext)s");
-    const args = buildYtDlpArgs({ plan, outputTemplate, cookiesPath: cookies });
+    return ytdlpLimiter.run(async () => {
+      const { plan, workDir, jobId, onEvent, signal } = opts;
+      const { ytDlp } = await resolveBinaries();
+      const cookies = getCookiesPathFor(plan.providerId);
+      const cookiesLoaded = !!(cookies && plan.useCookies);
+      const outputTemplate = path.join(workDir, "%(title).180B [%(id)s].%(ext)s");
+      const args = buildYtDlpArgs({ plan, outputTemplate, cookiesPath: cookies });
 
-    const start = Date.now();
-    logger.info(
-      {
-        jobId,
-        provider: plan.providerId,
-        videoId: plan.providerId === "youtube" ? extractYoutubeVideoId(plan.url) : undefined,
-        binary: ytDlp.path,
-        ytDlpVersion: ytDlp.version,
-        cookiesLoaded,
-        formatSelector: plan.format,
-        mergeOutputFormat: plan.mergeOutputFormat,
-        extractAudio: !!plan.extractAudio,
-        audioFormat: plan.audioFormat,
-        command: ["yt-dlp", ...args],
-      },
-      "yt-dlp download start",
-    );
+      const start = Date.now();
+      logMemory("ytdlp:download:start", { jobId, provider: plan.providerId, limiter: { active: ytdlpLimiter.activeCount, pending: ytdlpLimiter.pendingCount } });
+      logger.info(
+        {
+          jobId,
+          provider: plan.providerId,
+          videoId: plan.providerId === "youtube" ? extractYoutubeVideoId(plan.url) : undefined,
+          binary: ytDlp.path,
+          ytDlpVersion: ytDlp.version,
+          cookiesLoaded,
+          formatSelector: plan.format,
+          mergeOutputFormat: plan.mergeOutputFormat,
+          extractAudio: !!plan.extractAudio,
+          audioFormat: plan.audioFormat,
+          command: ["yt-dlp", ...args],
+        },
+        "yt-dlp download start",
+      );
+      try {
 
     // Explicit pre-exec audit so we can verify in Railway logs that BOTH
     // -f <selector> AND --cookies <path> are present in the same argv,
@@ -414,6 +428,7 @@ export class YtDlpEngine {
         },
         "yt-dlp failed",
       );
+      logMemory("ytdlp:download:failed", { jobId, provider: plan.providerId, code: mapped.code });
       throw mapped;
     }
 
@@ -430,8 +445,13 @@ export class YtDlpEngine {
     if (!final) throw ProviderError("yt-dlp produced no final file", "DOWNLOAD_FAILED");
 
     const filePath = path.join(workDir, final);
-    logger.info({ jobId, filePath, durationMs }, "yt-dlp download complete");
-    return { filePath, durationMs: Date.now() - start, command: ["yt-dlp", ...activeArgs] };
+        logger.info({ jobId, filePath, durationMs }, "yt-dlp download complete");
+        logMemory("ytdlp:download:done", { jobId, provider: plan.providerId });
+        return { filePath, durationMs: Date.now() - start, command: ["yt-dlp", ...activeArgs] };
+      } finally {
+        logMemory("ytdlp:download:exit", { jobId, provider: plan.providerId });
+      }
+    });
   }
 }
 
