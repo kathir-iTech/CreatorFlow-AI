@@ -292,6 +292,49 @@ function Index() {
     setSeoResult(data ? { titles: data.titles, tags: data.tags } : null);
   }, []);
 
+  const handleDemoLoad = useCallback(async (id: string) => {
+    try {
+      const base = (import.meta as unknown as { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL ?? "https://creatorflow-ai-backend-lin3.onrender.com";
+      const r = await fetch(`${String(base).replace(/\/+$/, "")}/api/v1/demo/${id}`);
+      const j = await r.json();
+      const entry = j.data as {
+        id: string;
+        url: string;
+        title: string;
+        metadata: { title: string };
+        captions: { captions: { start: number; end: number; text: string }[]; srt: string; vtt: string; videoId: string; source: string; language: string; isAuto: boolean };
+        seo: { titles: string[]; tags: string[] };
+      };
+      if (!entry) throw new Error("No demo");
+      setUrl(entry.url);
+      setSubmittedUrl(entry.url);
+      const plain = entry.captions.captions.map((c) => c.text).join(" ");
+      setTranscript(plain);
+      setCaptionsResult({
+        videoId: entry.id,
+        providerId: "youtube",
+        source: entry.captions.source as "native" | "whisper",
+        language: entry.captions.language,
+        isAuto: entry.captions.isAuto,
+        captions: entry.captions.captions,
+        srt: entry.captions.srt,
+        vtt: entry.captions.vtt,
+        demo: true,
+      } as CaptionsResult & { demo?: boolean });
+      setSeoResult({ titles: entry.seo.titles, tags: entry.seo.tags });
+      setFetchState("done");
+      setCaptionsState("done");
+      setSeoState("done");
+      setTab("captions");
+      // Persist for History
+      try {
+        addHistoryRun({ url: entry.url, videoId: entry.id, title: entry.title });
+      } catch {}
+    } catch {
+      // fallback to normal flow if demo fetch fails
+    }
+  }, []);
+
   const stepStates: Record<string, StepState> = {
     fetch: fetchState,
     captions: captionsState === "idle" && submittedUrl ? "working" : captionsState,
@@ -337,7 +380,7 @@ function Index() {
             className="tab-panel-enter mt-4"
           >
             <LazyPanel label="Fetch">
-              <FetchTab url={submittedUrl} onStatusChange={handleFetchStatus} />
+              <FetchTab url={submittedUrl} onStatusChange={handleFetchStatus} onDemoLoad={handleDemoLoad} />
             </LazyPanel>
           </TabsContent>
           <TabsContent

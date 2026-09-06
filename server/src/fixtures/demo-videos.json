@@ -1,0 +1,158 @@
+[
+  {
+    "id": "jNQXAC9IVRw",
+    "url": "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+    "title": "Me at the zoo",
+    "label": "Me at the zoo — 19s",
+    "metadata": {
+      "providerId": "youtube",
+      "id": "jNQXAC9IVRw",
+      "title": "Me at the zoo",
+      "description": "The first video on YouTube, uploaded on April 23, 2005.",
+      "uploader": "jawed",
+      "durationSec": 19,
+      "thumbnail": "https://i.ytimg.com/vi/jNQXAC9IVRw/hqdefault.jpg",
+      "webpageUrl": "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+      "formats": []
+    },
+    "captions": {
+      "videoId": "jNQXAC9IVRw",
+      "providerId": "youtube",
+      "source": "native",
+      "language": "en",
+      "isAuto": false,
+      "captions": [
+        { "start": 0, "end": 2, "text": "All right, so here we are in front of the elephants." },
+        { "start": 2, "end": 5, "text": "The cool thing about these guys is that they have really, really, really long trunks." },
+        { "start": 5, "end": 8, "text": "And that's, that's cool." },
+        { "start": 8, "end": 11, "text": "And that's pretty much all there is to say." }
+      ],
+      "srt": "1\n00:00:00,000 --> 00:00:02,000\nAll right, so here we are in front of the elephants.\n\n2\n00:00:02,000 --> 00:00:05,000\nThe cool thing about these guys is that they have really, really, really long trunks.\n\n",
+      "vtt": "WEBVTT\n\n00:00:00.000 --> 00:00:02.000\nAll right, so here we are in front of the elephants.\n\n"
+    },
+    "seo": {
+      "titles": [
+        "Me at the zoo — The First YouTube Video (19 Seconds That Started It All)",
+        "Why This 19-Second Elephant Clip Still Matters in 2026",
+        "The Story Behind YouTube's First Upload"
+      ],
+      "description": "The first video ever uploaded to YouTube — 19 seconds in front of the elephants. A perfect case study in minimal, authentic content that still ranks 20 years later.\n\n00:00 Intro\n00:05 The elephants\n00:11 Outro\n\n#YouTubeHistory #CreatorJourney #FirstVideo",
+      "tags": ["youtube history", "first youtube video", "me at the zoo", "creator story", "viral history", "jawed karim"],
+      "chapters": [
+        { "time": "00:00", "label": "Intro" },
+        { "time": "00:05", "label": "The elephants" },
+        { "time": "00:11", "label": "Outro" }
+      ]
+    },
+    "thumbnails": {
+      "videoId": "jNQXAC9IVRw",
+      "frames": [],
+      "capped": false,
+      "durationSec": 19
+    }
+  },
+  {
+    "id": "dQw4w9WgXcQ",
+    "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "title": "Rick Astley - Never Gonna Give You Up",
+    "label": "Rick Astley — 3:33",
+    "metadata": {
+      "providerId": "youtube",
+      "id": "dQw4w9WgXcQ",
+      "title": "Rick Astley - Never Gonna Give You Up (Official Music Video)",
+      "description": "The official music video for Never Gonna Give You Up by Rick Astley.",
+      "uploader": "Rick Astley",
+      "durationSec": 213,
+      "thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+      "webpageUrl": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "formats": []
+    },
+    "captions": {
+      "videoId": "dQw4w9WgXcQ",
+      "providerId": "youtube",
+      "source": "native",
+      "language": "en",
+      "isAuto": false,
+      "captions": [
+        { "start": 0.5, "end": 2.5, "text": "We're never gonna give you up" },
+        { "start": 2.5, "end": 5.0, "text": "Never gonna let you down" },
+        { "start": 5.0, "end": 8.0, "text": "Never gonna run around and desert you" },
+        { "start": 8.0, "end": 11.0, "text": "Never gonna make you cry" },
+        { "start": 11.0, "end": 13.5, "text": "Never gonna say goodbye" },
+        { "start": 13.5, "end": 16.0, "text": "Never gonna tell a lie and hurt you" }
+      ],
+      "srt": "1\n00:00:00,500 --> 00:00:02,500\nWe're never gonna give you up\n\n",
+      "vtt": "WEBVTT\n\n00:00:00.500 --> 00:00:02.500\nWe're never gonna give you up\n\n"
+    },
+    "seo": {
+      "titles": [
+        "I Got RickRolled — And Here's Why It Still Works in 2026",
+        "The Anatomy of a Never-Ending Meme: Never Gonna Give You Up",
+        "Why Rick Astley's 2009 Hit Still Drives Millions of Views"
+      ],
+      "description": "Breaking down the most enduring meme in internet history — and what creators can learn from its 1B+ view run.\n\n00:00 The setup\n00:45 The chorus that never dies\n01:30 Why it still works\n\n#RickAstley #MemeCulture #ViralBreakdown",
+      "tags": ["rick astley", "never gonna give you up", "meme", "viral", "music video", "rickroll"],
+      "chapters": [
+        { "time": "00:00", "label": "The setup" },
+        { "time": "00:45", "label": "The chorus" },
+        { "time": "01:30", "label": "Why it still works" }
+      ]
+    },
+    "thumbnails": {
+      "videoId": "dQw4w9WgXcQ",
+      "frames": [],
+      "capped": false,
+      "durationSec": 213
+    }
+  },
+  {
+    "id": "BaW_jenozKc",
+    "url": "https://www.youtube.com/watch?v=BaW_jenozKc",
+    "title": "youtube-dl test video",
+    "label": "youtube-dl test — 10s",
+    "metadata": {
+      "providerId": "youtube",
+      "id": "BaW_jenozKc",
+      "title": "youtube-dl test video \"'/_/\\a/öä#\"",
+      "description": "Test video for youtube-dl — 10 seconds, public, no age gate.",
+      "uploader": "Philipp Hagemeister",
+      "durationSec": 10,
+      "thumbnail": "https://i.ytimg.com/vi/BaW_jenozKc/hqdefault.jpg",
+      "webpageUrl": "https://www.youtube.com/watch?v=BaW_jenozKc",
+      "formats": []
+    },
+    "captions": {
+      "videoId": "BaW_jenozKc",
+      "providerId": "youtube",
+      "source": "native",
+      "language": "en",
+      "isAuto": true,
+      "captions": [
+        { "start": 0, "end": 2, "text": "youtube-dl test video" },
+        { "start": 2, "end": 5, "text": "This is a 10 second test clip." },
+        { "start": 5, "end": 8, "text": "Used for automated pipeline testing." }
+      ],
+      "srt": "1\n00:00:00,000 --> 00:00:02,000\nyoutube-dl test video\n\n",
+      "vtt": "WEBVTT\n\n00:00:00.000 --> 00:00:02.000\nyoutube-dl test video\n\n"
+    },
+    "seo": {
+      "titles": [
+        "10-Second Test Clip — Perfect for Pipeline Testing",
+        "Why Every Creator Needs a 10s Test Video",
+        "The Smallest Video That Still Tests Everything"
+      ],
+      "description": "A 10-second public test clip — ideal for verifying captions, SEO, thumbnails and schedule without waiting for a long download.\n\n00:00 Test\n00:05 Verify\n\n#TestVideo #CreatorTools #Pipeline",
+      "tags": ["test video", "youtube-dl", "pipeline", "creator tools", "short clip"],
+      "chapters": [
+        { "time": "00:00", "label": "Test" },
+        { "time": "00:05", "label": "Verify" }
+      ]
+    },
+    "thumbnails": {
+      "videoId": "BaW_jenozKc",
+      "frames": [],
+      "capped": false,
+      "durationSec": 10
+    }
+  }
+]
