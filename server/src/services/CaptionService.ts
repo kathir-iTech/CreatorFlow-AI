@@ -327,13 +327,29 @@ async function transcribeWithWhisper(rawUrl: string, providerId: string): Promis
   const url = canonicalizeMediaUrl(rawUrl);
   const provider = providerRegistry.resolveFromUrl(url);
   let plan: Awaited<ReturnType<typeof provider.buildDownloadPlan>>;
+  // Part 3 hardening: entire Whisper metadata + android-fallback retry previously ran
+  // 13-17s (logs show 8.4s primary + 8.4s fallback) before failing, keeping the
+  // request window open for proxy/container restarts to interfere. Cap total budget
+  // to 10s for both attempts combined — fail fast with clean AUDIO_DOWNLOAD_FAILED
+  // rather than lingering. This is measured via logMemory below.
   try {
-    const { metadata } = await infoService.getMetadata(url);
+    const metadataPromise = infoService.getMetadata(url).then(({ metadata }) => metadata);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Whisper metadata timeout after 10000ms (bot-check retry budget exceeded)")), 10000),
+    );
+    const startMeta = Date.now();
+    const metadata = (await Promise.race([metadataPromise, timeoutPromise])) as import("@/providers/types.js").MediaMetadata;
+    logMemory("whisper:metadata:race-won", { durationMs: Date.now() - startMeta });
     plan = provider.buildDownloadPlan(metadata, { url, kind: "audio", audioFormat: "mp3" });
   } catch (err) {
     // Granular: failure is upstream of transcription — audio was never downloadable.
+    // Includes timeout case above: err.message contains "Whisper metadata timeout"
     const detail = err instanceof Error ? err.message : String(err);
-    logger.warn({ err, providerId, url }, "whisper fallback: audio metadata/download setup failed");
+    const isTimeout = detail.includes("Whisper metadata timeout");
+    logger.warn({ err, providerId, url, isTimeout }, "whisper fallback: audio metadata/download setup failed");
+    if (isTimeout) {
+      logMemory("whisper:metadata:timeout", { providerId });
+    }
     throw new AppError(
       "AUDIO_DOWNLOAD_FAILED",
       `Couldn't download this video's audio for transcription (${detail}). It may be private, age-restricted, region-locked, or a live stream.`,
