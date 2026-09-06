@@ -2,23 +2,21 @@ import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useCallback, useState, type ReactNode } from "react";
 import type { StepState } from "@/lib/pipeline";
 import {
-  ArrowRight,
-  ArrowDown,
   Calendar,
   Captions,
   Check,
   Image as ImageIcon,
   Loader2,
-  Sparkles,
   TriangleAlert,
   Wand2,
   Zap,
 } from "lucide-react";
 import { UrlInput } from "@/components/UrlInput";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/sonner";
 import type { CaptionsResult } from "@/lib/api";
+import { addHistoryRun } from "@/lib/history";
 
 // Code-split: each tab chunk (incl. recharts in ScheduleTab) loads only when opened.
 const FetchTab = lazy(() => import("@/components/FetchTab").then((m) => ({ default: m.FetchTab })));
@@ -53,23 +51,70 @@ function Hero() {
   );
 }
 
-function StepIndicator({ states }: { active: string; states: Record<string, StepState> }) {
-  const steps: Array<{ key: string; label: string; icon: typeof Zap }> = [
-    { key: "fetch", label: "Fetch", icon: Zap },
-    { key: "captions", label: "Captions", icon: Captions },
-    { key: "seo", label: "SEO", icon: Wand2 },
-    { key: "thumbnail", label: "Thumbnail", icon: ImageIcon },
-    { key: "schedule", label: "Schedule", icon: Calendar },
-  ];
+/** Single source of truth for stage ordering and naming überall. */
+export const PIPELINE_STEPS = [
+  { key: "fetch", label: "Fetch" },
+  { key: "captions", label: "Captions" },
+  { key: "seo", label: "SEO" },
+  { key: "thumbnail", label: "Thumbnail" },
+  { key: "schedule", label: "Schedule" },
+] as const;
+
+const STEP_ICONS: Record<string, typeof Zap> = {
+  fetch: Zap,
+  captions: Captions,
+  seo: Wand2,
+  thumbnail: ImageIcon,
+  schedule: Calendar,
+};
+
+function StepIndicator({
+  active,
+  states,
+  onSelect,
+}: {
+  active: string;
+  states: Record<string, StepState>;
+  onSelect: (key: string) => void;
+}) {
+  const steps = PIPELINE_STEPS;
   const doneCount = steps.filter((s) => states[s.key] === "done").length;
   const hasWorking = steps.some((s) => states[s.key] === "working");
   const fillPct = Math.round(((doneCount + (hasWorking ? 0.5 : 0)) / (steps.length - 1)) * 100);
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    const idx = steps.findIndex((s) => s.key === active);
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      e.preventDefault();
+      const next = steps[(idx + 1) % steps.length];
+      onSelect(next.key);
+      document.getElementById(`thread-tab-${next.key}`)?.focus();
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const prev = steps[(idx - 1 + steps.length) % steps.length];
+      onSelect(prev.key);
+      document.getElementById(`thread-tab-${prev.key}`)?.focus();
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      onSelect(steps[0].key);
+      document.getElementById(`thread-tab-${steps[0].key}`)?.focus();
+    } else if (e.key === "End") {
+      e.preventDefault();
+      onSelect(steps[steps.length - 1].key);
+      document.getElementById(`thread-tab-${steps[steps.length - 1].key}`)?.focus();
+    }
+  };
+
   return (
-    <nav aria-label="Pipeline progress" className="mx-auto mt-6 w-full max-w-3xl">
-      <div className="relative rounded-2xl border border-white/[0.06] bg-[#1A1A1E]/60 px-3 py-4 backdrop-blur-xl sm:px-4">
+    <nav aria-label="Pipeline stages" className="mx-auto mt-6 w-full max-w-3xl">
+      <div
+        role="tablist"
+        aria-label="Pipeline stages"
+        onKeyDown={handleKeyDown}
+        className="relative rounded-2xl border border-white/[0.06] bg-[#1A1A1E]/60 px-3 py-4 backdrop-blur-xl sm:px-4"
+      >
         {/* continuous thread */}
-        <div className="absolute left-6 right-6 top-[22px] hidden sm:block">
+        <div className="absolute left-6 right-6 top-[22px] hidden sm:block" aria-hidden="true">
           <div className="pipeline-thread">
             <div
               className="pipeline-thread-fill"
@@ -77,7 +122,7 @@ function StepIndicator({ states }: { active: string; states: Record<string, Step
             />
           </div>
         </div>
-        <div className="absolute bottom-6 left-[18px] top-6 w-px sm:hidden">
+        <div className="absolute bottom-6 left-[18px] top-6 w-px sm:hidden" aria-hidden="true">
           <div className="h-full w-px bg-white/[0.08]" />
           <div
             className="absolute left-0 top-0 w-px bg-gradient-to-b from-[#FFB020] to-[#0EA5E9] transition-all duration-700"
@@ -87,21 +132,29 @@ function StepIndicator({ states }: { active: string; states: Record<string, Step
         <div className="relative flex flex-col gap-3 sm:flex-row sm:justify-between">
           {steps.map((s) => {
             const state = states[s.key] ?? "idle";
-            const Icon = s.icon;
+            const isActive = active === s.key;
+            const Icon = STEP_ICONS[s.key];
             return (
-              <div
+              <button
                 key={s.key}
-                className="flex items-center gap-3 sm:flex-col sm:items-center sm:gap-2"
+                id={`thread-tab-${s.key}`}
+                role="tab"
+                aria-selected={isActive}
+                aria-controls={`panel-${s.key}`}
+                onClick={() => onSelect(s.key)}
+                className={`group flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-left transition sm:flex-col sm:items-center sm:gap-2 sm:px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFB020]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1A1A1E] ${isActive ? "bg-white/[0.06]" : "hover:bg-white/[0.03]"}`}
               >
-                <div
+                <span
                   className={
                     state === "done"
-                      ? "grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#FFB020] text-[#09090B] shadow-lg shadow-amber-500/20"
+                      ? `grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#FFB020] text-[#09090B] shadow-lg shadow-amber-500/20 transition ${isActive ? "ring-2 ring-[#FFB020] ring-offset-2 ring-offset-[#1A1A1E]" : "group-hover:brightness-110"}`
                       : state === "working"
-                        ? "node-active-ripple grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#0EA5E9] text-white shadow-lg shadow-sky-500/30 ring-2 ring-sky-300/50"
+                        ? "node-active-ripple grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#0EA5E9] text-white shadow-lg shadow-sky-500/30 ring-2 ring-sky-300/50"
                         : state === "error"
-                          ? "grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#E11D48] text-white"
-                          : "grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-muted-foreground"
+                          ? `grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#E11D48] text-white ${isActive ? "ring-2 ring-rose-300 ring-offset-2 ring-offset-[#1A1A1E]" : ""}`
+                          : isActive
+                            ? "grid h-9 w-9 shrink-0 place-items-center rounded-full border-2 border-[#FFB020]/60 bg-[#FFB020]/10 text-[#FFB020] shadow-md"
+                            : "grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-muted-foreground group-hover:border-white/20 group-hover:text-foreground"
                   }
                 >
                   {state === "done" ? (
@@ -113,19 +166,26 @@ function StepIndicator({ states }: { active: string; states: Record<string, Step
                   ) : (
                     <Icon className="h-4 w-4" />
                   )}
-                </div>
+                </span>
                 <span
                   className={
-                    state === "done"
-                      ? "text-xs font-medium text-[#FFB020] sm:text-[11px]"
-                      : state === "working"
-                        ? "text-xs font-medium text-[#0EA5E9] sm:text-[11px]"
-                        : "text-xs text-muted-foreground sm:text-[11px]"
+                    isActive
+                      ? "text-xs font-semibold tracking-wide text-foreground sm:text-[11px]"
+                      : state === "done"
+                        ? "text-xs font-medium text-[#FFB020] sm:text-[11px]"
+                        : state === "working"
+                          ? "text-xs font-medium text-[#0EA5E9] sm:text-[11px]"
+                          : "text-xs text-muted-foreground group-hover:text-foreground sm:text-[11px]"
                   }
                 >
                   {s.label}
+                  {isActive && (
+                    <span className="ml-1 hidden text-[10px] leading-none text-[#FFB020] sm:inline">
+                      ●
+                    </span>
+                  )}
                 </span>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -185,6 +245,24 @@ function Index() {
     setCaptionsState("idle");
     setSeoState("idle");
     setTab("captions");
+    // Persist for History page (cheap genuine value — no stub page).
+    try {
+      const vid = (() => {
+        try {
+          const parsed = new URL(u);
+          return (
+            parsed.searchParams.get("v") ??
+            parsed.pathname.split("/").filter(Boolean).pop()?.slice(0, 20) ??
+            undefined
+          );
+        } catch {
+          return undefined;
+        }
+      })();
+      addHistoryRun({ url: u, videoId: vid });
+    } catch {
+      // storage blocked
+    }
   }, []);
 
   const handleValueChange = useCallback((u: string) => {
@@ -230,40 +308,27 @@ function Index() {
         <div className="mt-6">
           <UrlInput value={url} onValueChange={handleValueChange} onSubmit={handleSubmit} />
         </div>
-        <StepIndicator active={tab} states={stepStates} />
+        <StepIndicator active={tab} states={stepStates} onSelect={setTab} />
       </section>
 
       <section className="mx-auto w-full max-w-3xl">
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid w-full grid-cols-5" aria-label="Pipeline stages">
-            <TabsTrigger value="fetch" className="min-h-11 gap-1 text-xs">
-              <Zap className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Fetch</span>
-            </TabsTrigger>
-            <TabsTrigger value="captions" className="min-h-11 gap-1 text-xs">
-              <Captions className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Captions</span>
-            </TabsTrigger>
-            <TabsTrigger value="seo" className="min-h-11 gap-1 text-xs">
-              <Wand2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">SEO</span>
-            </TabsTrigger>
-            <TabsTrigger value="thumbnail" className="min-h-11 gap-1 text-xs">
-              <ImageIcon className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Thumb</span>
-            </TabsTrigger>
-            <TabsTrigger value="schedule" className="min-h-11 gap-1 text-xs">
-              <Calendar className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Plan</span>
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="fetch" className="tab-panel-enter mt-4">
+          <TabsContent
+            value="fetch"
+            id="panel-fetch"
+            role="tabpanel"
+            className="tab-panel-enter mt-4"
+          >
             <LazyPanel label="Fetch">
               <FetchTab url={submittedUrl} onStatusChange={handleFetchStatus} />
             </LazyPanel>
           </TabsContent>
-          <TabsContent value="captions" className="tab-panel-enter mt-4">
+          <TabsContent
+            value="captions"
+            id="panel-captions"
+            role="tabpanel"
+            className="tab-panel-enter mt-4"
+          >
             <LazyPanel label="Captions">
               <CaptionsTab
                 url={submittedUrl}
@@ -272,7 +337,7 @@ function Index() {
               />
             </LazyPanel>
           </TabsContent>
-          <TabsContent value="seo" className="tab-panel-enter mt-4">
+          <TabsContent value="seo" id="panel-seo" role="tabpanel" className="tab-panel-enter mt-4">
             <LazyPanel label="SEO">
               <SeoTab
                 transcript={transcript}
@@ -284,12 +349,22 @@ function Index() {
               />
             </LazyPanel>
           </TabsContent>
-          <TabsContent value="thumbnail" className="tab-panel-enter mt-4">
+          <TabsContent
+            value="thumbnail"
+            id="panel-thumbnail"
+            role="tabpanel"
+            className="tab-panel-enter mt-4"
+          >
             <LazyPanel label="Thumbnail">
               <ThumbnailTab url={submittedUrl} />
             </LazyPanel>
           </TabsContent>
-          <TabsContent value="schedule" className="tab-panel-enter mt-4">
+          <TabsContent
+            value="schedule"
+            id="panel-schedule"
+            role="tabpanel"
+            className="tab-panel-enter mt-4"
+          >
             <LazyPanel label="Schedule">
               <ScheduleTab
                 transcript={transcript}

@@ -255,7 +255,15 @@ export function FetchTab({
         )}
 
         {status === "working" && (
-          <div className="space-y-2" aria-label="Download progress">
+          <div className="space-y-3" aria-label="Download progress">
+            <div className="flex items-center justify-between">
+              <span className="rounded-md bg-[#0EA5E9]/10 px-2 py-1 font-mono text-[11px] tracking-widest text-[#0EA5E9] ring-1 ring-[#0EA5E9]/20">
+                ● REC {String(percent).padStart(3, "0")}%
+              </span>
+              <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                {percent}%{job?.message ? ` — ${job.message}` : ""}
+              </span>
+            </div>
             <div
               className="h-2 w-full overflow-hidden rounded-full bg-foreground/10"
               role="progressbar"
@@ -269,9 +277,6 @@ export function FetchTab({
                 style={{ width: `${percent}%` }}
               />
             </div>
-            <p className="text-center text-xs text-muted-foreground">
-              {percent}%{job?.message ? ` — ${job.message}` : ""}
-            </p>
             {percent === 0 && (
               <div className="space-y-2 pt-2">
                 <Skeleton className="h-4 w-2/3" />

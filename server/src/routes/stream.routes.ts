@@ -8,7 +8,8 @@ import { resolveBinaries } from "@/runtime/BinaryResolver.js";
 import { getCookiesPath } from "@/security/CookiesDetector.js";
 import { buildYtDlpArgs } from "@/engines/downloader/YtDlpArgsBuilder.js";
 import { logger } from "@/logging/logger.js";
-import { contentDispositionFilename, sanitizeFilename, sanitizeMediaUrl } from "@/utils/sanitize.js";
+import { contentDispositionFilename, sanitizeFilename } from "@/utils/sanitize.js";
+import { canonicalizeMediaUrl } from "@/utils/youtube.js";
 
 const StreamQuery = z.object({
   url: z.string(),
@@ -29,7 +30,7 @@ export const streamRouter = Router();
 streamRouter.get("/", validate(StreamQuery, "query"), async (req, res, next) => {
   try {
     const q = getValidated<StreamQuery>(req, "query");
-    q.url = sanitizeMediaUrl(q.url);
+    q.url = canonicalizeMediaUrl(q.url);
     const provider = providerRegistry.resolveFromUrl(q.url);
     const { metadata } = await infoService.getMetadata(q.url);
     const plan = provider.buildDownloadPlan(metadata, {
@@ -43,7 +44,7 @@ streamRouter.get("/", validate(StreamQuery, "query"), async (req, res, next) => 
     const cookies = getCookiesPath();
     const args = buildYtDlpArgs({ plan, outputTemplate: "-", cookiesPath: cookies });
     const filename = sanitizeFilename(
-      `${metadata.title}.${q.kind === "audio" ? plan.audioFormat ?? "mp3" : "mp4"}`,
+      `${metadata.title}.${q.kind === "audio" ? (plan.audioFormat ?? "mp3") : "mp4"}`,
     );
 
     logger.info({ provider: provider.id, command: ["yt-dlp", ...args] }, "Stream start");

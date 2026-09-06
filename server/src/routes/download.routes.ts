@@ -8,7 +8,8 @@ import { downloadRateLimit } from "@/middleware/rateLimit.js";
 import { downloadService } from "@/services/DownloadService.js";
 import { jobStore, type JobEvent } from "@/jobs/JobStore.js";
 import { NotFoundError } from "@/errors/AppError.js";
-import { contentDispositionFilename, sanitizeMediaUrl } from "@/utils/sanitize.js";
+import { contentDispositionFilename } from "@/utils/sanitize.js";
+import { canonicalizeMediaUrl } from "@/utils/youtube.js";
 import { SSE_HEARTBEAT_MS } from "@/config/constants.js";
 import { logger } from "@/logging/logger.js";
 import { safeRemove } from "@/utils/tmp.js";
@@ -25,19 +26,23 @@ const CreateBody = z.object({
 });
 type CreateBody = z.infer<typeof CreateBody>;
 
-
 export const downloadRouter = Router();
 
-downloadRouter.post("/", downloadRateLimit, validate(CreateBody, "body"), async (req, res, next) => {
-  try {
-    const body = getValidated<CreateBody>(req, "body");
-    body.url = sanitizeMediaUrl(body.url);
-    const result = await downloadService.create(body);
-    res.status(202).json({ data: result, requestId: req.id });
-  } catch (err) {
-    next(err);
-  }
-});
+downloadRouter.post(
+  "/",
+  downloadRateLimit,
+  validate(CreateBody, "body"),
+  async (req, res, next) => {
+    try {
+      const body = getValidated<CreateBody>(req, "body");
+      body.url = canonicalizeMediaUrl(body.url);
+      const result = await downloadService.create(body);
+      res.status(202).json({ data: result, requestId: req.id });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 downloadRouter.get("/:id", (req, res, next) => {
   try {
@@ -93,7 +98,11 @@ downloadRouter.get("/:id/events", (req, res) => {
 
   const unsub = jobStore.subscribe(jobId, (event) => {
     send(event);
-    if (event.type === "completed" || event.type === "error" || (event.type === "status" && event.status === "canceled")) {
+    if (
+      event.type === "completed" ||
+      event.type === "error" ||
+      (event.type === "status" && event.status === "canceled")
+    ) {
       cleanup();
     }
   });

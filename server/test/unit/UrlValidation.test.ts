@@ -32,12 +32,37 @@ describe("URL validation regression", () => {
   });
 
   it("sanitizeMediaUrl strips si, list, start_radio and tracking params", () => {
-    expect(sanitizeMediaUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ&si=abc123&list=PL123"))
-      .toBe("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
-    expect(sanitizeMediaUrl("https://youtu.be/dQw4w9WgXcQ?si=abc&start_radio=1"))
-      .toBe("https://youtu.be/dQw4w9WgXcQ");
-    expect(sanitizeMediaUrl("https://www.instagram.com/reel/ABC123/?utm_source=ig_web"))
-      .toBe("https://www.instagram.com/reel/ABC123/");
+    expect(
+      sanitizeMediaUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ&si=abc123&list=PL123"),
+    ).toBe("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+    expect(sanitizeMediaUrl("https://youtu.be/dQw4w9WgXcQ?si=abc&start_radio=1")).toBe(
+      "https://youtu.be/dQw4w9WgXcQ",
+    );
+    expect(sanitizeMediaUrl("https://www.instagram.com/reel/ABC123/?utm_source=ig_web")).toBe(
+      "https://www.instagram.com/reel/ABC123/",
+    );
+  });
+
+  it("sanitizeMediaUrl strips timestamp params t and start (422 fix)", () => {
+    expect(sanitizeMediaUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=20s")).toBe(
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    );
+    expect(sanitizeMediaUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=20")).toBe(
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    );
+    expect(sanitizeMediaUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1m20s")).toBe(
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    );
+    expect(sanitizeMediaUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ&start=20")).toBe(
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    );
+    expect(sanitizeMediaUrl("https://youtu.be/dQw4w9WgXcQ?t=42&si=abc123")).toBe(
+      "https://youtu.be/dQw4w9WgXcQ",
+    );
+    // combo: si + t + list together (real mobile share)
+    expect(
+      sanitizeMediaUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ&si=abc123&t=20s&list=PL123"),
+    ).toBe("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
   });
 
   it("sanitizeMediaUrl trims and falls back for non-URL strings", () => {

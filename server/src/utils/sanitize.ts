@@ -28,6 +28,9 @@ const STRIP_QUERY_KEYS = new Set([
   "feature",
   "ab_channel",
   "si",
+  // timestamp params — very common real paste (copy at current time). Must not cause 422.
+  "t",
+  "start",
   "utm_source",
   "utm_medium",
   "utm_campaign",

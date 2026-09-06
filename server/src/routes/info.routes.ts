@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { validate, getValidated } from "@/middleware/validate.js";
 import { infoService } from "@/services/InfoService.js";
-import { sanitizeMediaUrl } from "@/utils/sanitize.js";
+import { canonicalizeMediaUrl } from "@/utils/youtube.js";
 
 // Intentionally loose: the backend sanitizes and normalizes the URL; strict
 // .url() validation would reject copy-pasted links with tracking params or
@@ -10,13 +10,12 @@ import { sanitizeMediaUrl } from "@/utils/sanitize.js";
 const InfoBody = z.object({ url: z.string() });
 type InfoBody = z.infer<typeof InfoBody>;
 
-
 export const infoRouter = Router();
 
 infoRouter.post("/", validate(InfoBody, "body"), async (req, res, next) => {
   try {
     const { url } = getValidated<InfoBody>(req, "body");
-    const cleanUrl = sanitizeMediaUrl(url);
+    const cleanUrl = canonicalizeMediaUrl(url);
     const { metadata, cached, providerId } = await infoService.getMetadata(cleanUrl);
     res.setHeader("Cache-Control", "private, max-age=60");
     res.json({

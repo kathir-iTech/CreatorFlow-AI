@@ -155,17 +155,48 @@ export function ScheduleTab({
     savePosts(posts);
   }, [posts]);
 
+  /** Accept pasted full channel URLs, bare handles, or IDs — always normalize. */
+  const normalizeChannelInput = useCallback((raw: string): string | undefined => {
+    const trimmed = raw.trim();
+    if (!trimmed) return undefined;
+    // If it looks like a URL, try to extract handle/ID/channel path
+    try {
+      const u = new URL(trimmed);
+      const host = u.hostname.toLowerCase().replace(/^www\./, "");
+      if (host.includes("youtube.com") || host === "youtu.be") {
+        // /@handle or /channel/UC... or /c/name or /user/name
+        const path = u.pathname;
+        const handleMatch = path.match(/\/@([A-Za-z0-9._-]+)/);
+        if (handleMatch) return `@${handleMatch[1]}`;
+        const channelMatch = path.match(/\/channel\/([A-Za-z0-9_-]+)/);
+        if (channelMatch) return channelMatch[1];
+        const cMatch = path.match(/\/(?:c|user)\/([A-Za-z0-9_-]+)/);
+        if (cMatch) return cMatch[1];
+        // query ?channel= or /@handle via search?
+        const qHandle = u.searchParams.get("handle") ?? u.searchParams.get("channel");
+        if (qHandle) return qHandle.startsWith("@") ? qHandle : `@${qHandle}`;
+      }
+    } catch {
+      // not a URL — fall through to raw handle/id
+    }
+    return trimmed;
+  }, []);
+
   // Fetch stats — example data by default; pass a channel ID or @handle
   // for live YouTube Data API stats (falls back honestly on any failure).
-  const loadStats = useCallback((ch?: string) => {
-    setStatsError(false);
-    setStatsLoading(true);
-    api
-      .channelStats(ch?.trim() ? ch.trim() : undefined)
-      .then(setStats)
-      .catch(() => setStatsError(true))
-      .finally(() => setStatsLoading(false));
-  }, []);
+  const loadStats = useCallback(
+    (ch?: string) => {
+      const normalized = ch ? normalizeChannelInput(ch) : undefined;
+      setStatsError(false);
+      setStatsLoading(true);
+      api
+        .channelStats(normalized)
+        .then(setStats)
+        .catch(() => setStatsError(true))
+        .finally(() => setStatsLoading(false));
+    },
+    [normalizeChannelInput],
+  );
 
   useEffect(() => {
     loadStats();
@@ -442,7 +473,11 @@ export function ScheduleTab({
                 className="flex gap-2"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  loadStats(channel);
+                  // Read live DOM value to avoid stale closure if paste + Enter races state
+                  const fd = new FormData(e.currentTarget as HTMLFormElement);
+                  const live = (fd.get("channel") as string) ?? channel;
+                  if (live !== channel) setChannel(live);
+                  loadStats(live);
                 }}
               >
                 <label htmlFor="sched-channel" className="sr-only">
@@ -450,9 +485,27 @@ export function ScheduleTab({
                 </label>
                 <input
                   id="sched-channel"
+                  name="channel"
                   value={channel}
                   onChange={(e) => setChannel(e.target.value)}
+                  onPaste={(e) => {
+                    // Ensure paste populates immediately even if browser batches
+                    const pasted = e.clipboardData.getData("text");
+                    if (pasted) {
+                      // Let onChange handle it, but also ensure state syncs next tick
+                      requestAnimationFrame(() => {
+                        const el = document.getElementById(
+                          "sched-channel",
+                        ) as HTMLInputElement | null;
+                        if (el && el.value !== channel) setChannel(el.value);
+                      });
+                    }
+                  }}
                   placeholder="Channel ID or @handle for live stats (empty = example)"
+                  autoComplete="off"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                   className="min-w-0 flex-1 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs outline-none focus:border-cyan-400/50"
                 />
                 <Button
