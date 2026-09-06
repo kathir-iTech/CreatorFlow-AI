@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { api } from "@/lib/api";
+import { api, type ChannelStats } from "@/lib/api";
 
 const STORAGE_KEY = "creatorflow-scheduled-posts";
 
@@ -86,22 +86,6 @@ function savePosts(posts: ScheduledPost[]) {
   }
 }
 
-type ChannelStats = {
-  channelName: string;
-  subscribers: number;
-  totalViews: number;
-  totalVideos: number;
-  avgViewsPerVideo: number;
-  recentVideos: {
-    title: string;
-    views: number;
-    likes: number;
-    comments: number;
-    publishedAt: string;
-  }[];
-  viewsOverTime: { date: string; views: number }[];
-};
-
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2">
@@ -119,19 +103,24 @@ export function ScheduleTab() {
   const [newDate, setNewDate] = useState("");
   const [newCategory, setNewCategory] = useState("Tutorial");
   const [showAdd, setShowAdd] = useState(false);
+  const [channel, setChannel] = useState("");
+  const [statsLoading, setStatsLoading] = useState(false);
 
   // Persist (storage may be blocked in private mode — savePosts already guards)
   useEffect(() => {
     savePosts(posts);
   }, [posts]);
 
-  // Fetch demo stats — with a real error state + retry, not a silent swallow.
-  const loadStats = useCallback(() => {
+  // Fetch stats — example data by default; pass a channel ID or @handle
+  // for live YouTube Data API stats (falls back honestly on any failure).
+  const loadStats = useCallback((ch?: string) => {
     setStatsError(false);
+    setStatsLoading(true);
     api
-      .channelStats()
+      .channelStats(ch?.trim() ? ch.trim() : undefined)
       .then(setStats)
-      .catch(() => setStatsError(true));
+      .catch(() => setStatsError(true))
+      .finally(() => setStatsLoading(false));
   }, []);
 
   useEffect(() => {
@@ -164,6 +153,10 @@ export function ScheduleTab() {
   const past = sorted.filter((p) => p.date < today);
 
   const bestTimes = BEST_TIMES[newCategory] ?? BEST_TIMES.Other;
+  // Live channel data beats the static table: rank this channel's own
+  // publish slots by views when real stats are loaded.
+  const liveSlots = stats && !stats.demo ? (stats.suggestedSlots ?? []) : [];
+  const showLiveSlots = liveSlots.length > 0;
 
   return (
     <div className="space-y-4">
@@ -229,15 +222,22 @@ export function ScheduleTab() {
             <div className="rounded-lg border border-emerald-500/10 bg-emerald-500/5 px-3 py-2">
               <div className="flex items-center gap-1.5 text-[10px] text-emerald-300">
                 <Zap className="h-3 w-3" />
-                Best times for {newCategory}:
+                {showLiveSlots
+                  ? `Best times from this channel's own videos:`
+                  : `Best times for ${newCategory}:`}
               </div>
               <div className="mt-1 flex gap-2 text-xs text-muted-foreground">
-                {bestTimes.map((t, i) => (
-                  <span key={i}>
-                    {t.day} {t.hour}:00 UTC
-                    {i < bestTimes.length - 1 && " ·"}
-                  </span>
-                ))}
+                {showLiveSlots
+                  ? liveSlots.map((t, i) => (
+                      <span key={i}>
+                        {t.day} {t.hour}:00 UTC{i < liveSlots.length - 1 && " ·"}
+                      </span>
+                    ))
+                  : bestTimes.map((t, i) => (
+                      <span key={i}>
+                        {t.day} {t.hour}:00 UTC{i < bestTimes.length - 1 && " ·"}
+                      </span>
+                    ))}
               </div>
             </div>
 
@@ -335,7 +335,7 @@ export function ScheduleTab() {
             <p className="text-xs text-muted-foreground">
               Channel stats are unavailable right now (the server may be waking up).
             </p>
-            <Button variant="outline" size="sm" onClick={loadStats}>
+            <Button variant="outline" size="sm" onClick={() => loadStats(channel)}>
               Retry
             </Button>
           </CardContent>
@@ -346,15 +346,48 @@ export function ScheduleTab() {
           {/* Stats overview */}
           <Card className="glass">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-1.5 text-sm">
+              <CardTitle className="flex flex-wrap items-center gap-1.5 text-sm">
                 <BarChart3 className="h-4 w-4 text-cyan-400" />
                 {stats.channelName}
-                <Badge variant="secondary" className="text-[10px]">
-                  DEMO DATA
-                </Badge>
+                {stats.demo ? (
+                  <Badge variant="secondary" className="text-[10px]">
+                    EXAMPLE DATA
+                  </Badge>
+                ) : (
+                  <Badge variant="default" className="text-[10px]">
+                    LIVE DATA
+                  </Badge>
+                )}
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
+              <form
+                className="flex gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  loadStats(channel);
+                }}
+              >
+                <label htmlFor="sched-channel" className="sr-only">
+                  YouTube channel ID or @handle for live stats
+                </label>
+                <input
+                  id="sched-channel"
+                  value={channel}
+                  onChange={(e) => setChannel(e.target.value)}
+                  placeholder="Channel ID or @handle for live stats (empty = example)"
+                  className="min-w-0 flex-1 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs outline-none focus:border-cyan-400/50"
+                />
+                <Button
+                  type="submit"
+                  variant="outline"
+                  size="sm"
+                  disabled={statsLoading}
+                  className="shrink-0"
+                >
+                  {statsLoading ? "Loading…" : "Load"}
+                </Button>
+              </form>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <StatCard label="Subscribers" value={stats.subscribers.toLocaleString()} />
                 <StatCard label="Total Views" value={stats.totalViews.toLocaleString()} />

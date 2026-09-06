@@ -118,14 +118,22 @@ function StepIndicator({ active, states }: { active: string; states: Record<stri
   );
 }
 
-function LazyPanel({ children }: { children: ReactNode }) {
+function LazyPanel({ children, label }: { children: ReactNode; label: string }) {
   return (
     <Suspense
       fallback={
-        <Card className="glass">
-          <CardContent className="p-8 text-center">
-            <div className="h-4 w-24 rounded bg-foreground/10" />
-            <div className="mt-3 h-3 w-48 rounded bg-foreground/5" />
+        <Card className="glass" aria-label={`Loading ${label}`}>
+          <CardContent className="space-y-4 p-6">
+            <div className="flex items-center justify-between gap-2">
+              <div className="h-5 w-32 rounded-md bg-foreground/10" />
+              <div className="h-8 w-24 rounded-md bg-foreground/10" />
+            </div>
+            <div className="h-3 w-2/3 rounded bg-foreground/5" />
+            <div className="space-y-2 pt-2" aria-hidden="true">
+              <div className="h-4 w-full rounded bg-foreground/5" />
+              <div className="h-4 w-5/6 rounded bg-foreground/5" />
+              <div className="h-4 w-4/6 rounded bg-foreground/5" />
+            </div>
           </CardContent>
         </Card>
       }
@@ -229,12 +237,12 @@ function Index() {
           </TabsList>
 
           <TabsContent value="fetch" className="tab-panel-enter mt-4">
-            <LazyPanel>
+            <LazyPanel label="Fetch">
               <FetchTab url={submittedUrl} onStatusChange={handleFetchStatus} />
             </LazyPanel>
           </TabsContent>
           <TabsContent value="captions" className="tab-panel-enter mt-4">
-            <LazyPanel>
+            <LazyPanel label="Captions">
               <CaptionsTab
                 url={submittedUrl}
                 onTranscript={handleTranscript}
@@ -243,7 +251,7 @@ function Index() {
             </LazyPanel>
           </TabsContent>
           <TabsContent value="seo" className="tab-panel-enter mt-4">
-            <LazyPanel>
+            <LazyPanel label="SEO">
               <SeoTab
                 transcript={transcript}
                 videoTitle={
@@ -254,12 +262,12 @@ function Index() {
             </LazyPanel>
           </TabsContent>
           <TabsContent value="thumbnail" className="tab-panel-enter mt-4">
-            <LazyPanel>
+            <LazyPanel label="Thumbnail">
               <ThumbnailTab url={submittedUrl} />
             </LazyPanel>
           </TabsContent>
           <TabsContent value="schedule" className="tab-panel-enter mt-4">
-            <LazyPanel>
+            <LazyPanel label="Schedule">
               <ScheduleTab />
             </LazyPanel>
           </TabsContent>

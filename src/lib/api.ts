@@ -220,6 +220,12 @@ export type ChannelStatsVideo = {
   publishedAt: string;
 };
 
+export type SuggestedSlot = {
+  day: string;
+  hour: number;
+  score: number;
+};
+
 export type ChannelStats = {
   channelName: string;
   subscribers: number;
@@ -228,6 +234,10 @@ export type ChannelStats = {
   avgViewsPerVideo: number;
   recentVideos: ChannelStatsVideo[];
   viewsOverTime: { date: string; views: number }[];
+  suggestedSlots?: SuggestedSlot[];
+  demo: boolean;
+  channelId?: string;
+  fetchedAt?: string;
 };
 
 // ---------------- Calls ----------------
@@ -291,7 +301,10 @@ export const api = {
       body: JSON.stringify({ url }),
     }),
 
-  channelStats: () => request<ChannelStats>("/api/v1/channel-stats"),
+  channelStats: (channel?: string) => {
+    const qs = channel?.trim() ? `?channel=${encodeURIComponent(channel.trim())}` : "";
+    return request<ChannelStats>(`/api/v1/channel-stats${qs}`);
+  },
 
   health: async () => {
     const r = await fetch(`${API_BASE_URL}/healthz`).catch(() => null);

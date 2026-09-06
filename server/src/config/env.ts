@@ -35,6 +35,11 @@ const schema = z.object({
   // (shut down 2026-08-16). Override if Groq rotates models again.
   GROQ_SEO_MODEL: z.string().optional(),
 
+  // YouTube Data API v3 key (Google Cloud Console, API-key credential —
+  // public stats only, no OAuth). Enables LIVE channel stats; unset means
+  // the Schedule tab shows clearly-labeled example data.
+  YOUTUBE_DATA_API_KEY: z.string().optional(),
+
   // Per-provider cookie overrides. When set, they take precedence over
   // the generic COOKIES_TXT* pair for that provider only.
   INSTAGRAM_COOKIES_TXT: z.string().optional(),
