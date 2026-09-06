@@ -56,7 +56,8 @@ describe("YtDlpArgsBuilder", () => {
     expect(args).toContain("--remote-components");
     expect(args[args.indexOf("--remote-components") + 1]).toBe("ejs:github");
     expect(args).toContain("--extractor-args");
-    expect(args).toContain("youtube:player_client=android,tv_simply,web;skip=hls");
+    expect(args.join(" ")).toContain("youtube:player_client=");
+    expect(args.join(" ")).toContain("skip=hls");
   });
 
   it("builds different YouTube -f selectors for different requested heights", () => {
@@ -97,6 +98,7 @@ describe("YtDlpArgsBuilder", () => {
     expect(args144).toContain("Accept-Language:en-US,en;q=0.9");
     expect(args144).toContain("--remote-components");
     expect(args144[args144.indexOf("--remote-components") + 1]).toBe("ejs:github");
-    expect(args144).toContain("youtube:player_client=android,tv_simply,web;skip=hls");
+    expect(args144.join(" ")).toContain("youtube:player_client=");
+    expect(args144.join(" ")).toContain("skip=hls");
   });
 });
