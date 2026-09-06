@@ -15,6 +15,7 @@ import { createJobDir, safeRemove } from "@/utils/tmp.js";
 import { logger } from "@/logging/logger.js";
 import { AppError } from "@/errors/AppError.js";
 import { infoService } from "./InfoService.js";
+import { recordStatus } from "@/runtime/RequestStatusBuffer.js";
 import type { DownloadRequest } from "@/providers/types.js";
 
 export interface CreateDownloadResult {
@@ -99,6 +100,7 @@ export class DownloadService {
             filesize: size,
             finishedAt: Date.now(),
           });
+          recordStatus({ endpoint: "downloads", path: result.filePath.includes("cobalt") ? "cobalt" : "yt_dlp", success: true });
           jobStore.emit({
             type: "completed",
             jobId,
@@ -125,6 +127,7 @@ export class DownloadService {
           errorProvider = d.provider;
           errorRetryable = d.retryable;
         }
+        recordStatus({ endpoint: "downloads", path: "yt_dlp", success: false });
         jobStore.update(jobId, {
           status: "failed",
           errorCode: code,

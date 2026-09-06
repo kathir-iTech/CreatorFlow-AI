@@ -5,6 +5,7 @@ import { providerRegistry } from "@/providers/ProviderRegistry.js";
 import type { MediaMetadata } from "@/providers/types.js";
 import { extractYoutubeVideoId } from "@/engines/downloader/BotCheckDetector.js";
 import { logger } from "@/logging/logger.js";
+import { recordStatus } from "@/runtime/RequestStatusBuffer.js";
 import { AppError } from "@/errors/AppError.js";
 
 async function fetchPipedMetadata(videoId: string): Promise<MediaMetadata | null> {
@@ -141,6 +142,7 @@ export class InfoService {
     const hit = cache.get(key);
     if (hit) {
       logger.warn({ providerId: provider.id, path: "cache" }, "InfoService cache hit");
+      recordStatus({ endpoint: "info", path: "cache", success: true });
       return { metadata: hit, cached: true, providerId: provider.id };
     }
 
@@ -151,6 +153,7 @@ export class InfoService {
         const viaApi = await fetchYoutubeDataApi(vid, signal);
         if (viaApi) {
           logger.warn({ videoId: vid, providerId: provider.id, path: "data_api" }, "Data API metadata served");
+          recordStatus({ endpoint: "info", path: "data_api", success: true });
           cache.set(key, viaApi);
           return { metadata: viaApi, cached: false, providerId: provider.id };
         }
@@ -162,6 +165,7 @@ export class InfoService {
     try {
       const metadata = await provider.fetchMetadata(url, signal);
       logger.warn({ providerId: provider.id, path: "yt_dlp" }, "yt-dlp metadata served");
+      recordStatus({ endpoint: "info", path: "yt_dlp", success: true });
       cache.set(key, metadata);
       return { metadata, cached: false, providerId: provider.id };
     } catch (err) {
@@ -172,6 +176,7 @@ export class InfoService {
         logger.warn({ videoId: vid, providerId: provider.id, path: "piped" }, "yt-dlp BOT_CHECK, trying Piped");
         const piped = await fetchPipedMetadata(vid);
         if (piped) {
+          recordStatus({ endpoint: "info", path: "piped", success: true });
           cache.set(key, piped);
           return { metadata: piped, cached: false, providerId: provider.id };
         }
@@ -179,12 +184,16 @@ export class InfoService {
         logger.warn({ videoId: vid, providerId: provider.id, path: "cobalt" }, "Piped miss, trying Cobalt");
         const cobalt = await fetchCobaltMetadata(vid);
         if (cobalt) {
+          recordStatus({ endpoint: "info", path: "cobalt", success: true });
           cache.set(key, cobalt);
           return { metadata: cobalt, cached: false, providerId: provider.id };
         }
+        recordStatus({ endpoint: "info", path: "piped", success: false });
+        recordStatus({ endpoint: "info", path: "cobalt", success: false });
       }
       // f. All paths failed
       logger.warn({ providerId: provider.id, path: "all_failed", code: err instanceof AppError ? err.code : "UNKNOWN" }, "All metadata paths failed");
+      recordStatus({ endpoint: "info", path: "yt_dlp", success: false });
       throw err;
     }
   }

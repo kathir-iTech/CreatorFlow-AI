@@ -390,6 +390,15 @@ export const api = {
       return null;
     }
   },
+
+  statusPublic: () =>
+    request<{
+      entries: Array<{ timestamp: string; endpoint: string; path: string; success: boolean }>;
+      total: number;
+      percentages: Record<string, number>;
+      byPathSuccess: Record<string, { total: number; success: number; rate: number }>;
+      generatedAt: string;
+    }>("/api/v1/status/public"),
 };
 
 /** Map any error into a user-safe message. Never leak raw yt-dlp output. */

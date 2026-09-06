@@ -94,6 +94,9 @@ function Footer() {
         <span className="flex items-center gap-3">
           <span className="hidden sm:inline">Captions · SEO · Thumbnail · Schedule</span>
           <span className="h-3 w-px bg-white/10 hidden sm:inline" />
+          <Link to="/status" className="text-[#FFB020] hover:underline">
+            System status
+          </Link>
           <span className="text-[11px] tracking-[0.1em]">BUILT FOR CREATORS, NOT DASHBOARDS</span>
         </span>
       </div>

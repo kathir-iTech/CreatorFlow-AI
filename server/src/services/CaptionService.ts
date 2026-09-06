@@ -23,6 +23,7 @@ import { canonicalizeMediaUrl, normalizeYoutubeUrl } from "@/utils/youtube.js";
 import { createJobDir, safeRemove } from "@/utils/tmp.js";
 import { logMemory } from "@/utils/memory.js";
 import { ytdlpLimiter } from "@/utils/concurrency.js";
+import { recordStatus } from "@/runtime/RequestStatusBuffer.js";
 import {
   parseJson3,
   parseTimedtextXml,
@@ -639,20 +640,32 @@ export class CaptionService {
     // Native path only makes sense for YouTube; other providers go straight to Whisper.
     if (providerId === "youtube" && videoId) {
       const native = await fetchNativeCaptions(videoId, lang);
-      if (native) return native;
+      if (native) {
+        recordStatus({ endpoint: "captions", path: "native_captions", success: true });
+        return native;
+      }
       const viaYtDlp = await fetchNativeViaYtDlp(url, videoId);
-      if (viaYtDlp) return viaYtDlp;
+      if (viaYtDlp) {
+        recordStatus({ endpoint: "captions", path: "native_captions", success: true });
+        return viaYtDlp;
+      }
       // Piped/Invidious fallback — no yt-dlp, no cookies, no datacenter IP block
       const piped = await fetchPipedCaptions(videoId, lang);
-      if (piped) return piped;
+      if (piped) {
+        recordStatus({ endpoint: "captions", path: "piped", success: true });
+        return piped;
+      }
     }
 
     // Fallback: Whisper (needs audio download + GROQ_API_KEY). Preserves 422 for jury
     // to see honest retryable state — no fake content. If you need 100% demo
     // for a specific jury run, set CAPTION_DEMO_ON_BLOCK=1 (explicit opt-in, not silent).
     try {
-      return await transcribeWithWhisper(url, providerId);
+      const res = await transcribeWithWhisper(url, providerId);
+      recordStatus({ endpoint: "captions", path: "whisper", success: true });
+      return res;
     } catch (err) {
+      recordStatus({ endpoint: "captions", path: "whisper", success: false });
       if (err instanceof AppError && err.code === "BOT_CHECK" && process.env.CAPTION_DEMO_ON_BLOCK === "1") {
         logger.warn({ videoId, providerId }, "BOT_CHECK with CAPTION_DEMO_ON_BLOCK=1 — serving demo transcript (explicit opt-in only)");
         const demoSegs: CaptionSegment[] = [
