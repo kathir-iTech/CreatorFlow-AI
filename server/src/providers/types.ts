@@ -89,6 +89,6 @@ export interface MediaProvider {
   readonly requiresCookies: boolean;
 
   supports(url: URL): boolean;
-  fetchMetadata(url: string): Promise<MediaMetadata>;
+  fetchMetadata(url: string, signal?: AbortSignal): Promise<MediaMetadata>;
   buildDownloadPlan(metadata: MediaMetadata, request: DownloadRequest): DownloadPlan;
 }

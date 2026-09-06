@@ -10,13 +10,13 @@ const cache = new LRUCache<string, MediaMetadata>({
 });
 
 export class InfoService {
-  async getMetadata(url: string): Promise<{ metadata: MediaMetadata; cached: boolean; providerId: string }> {
+  async getMetadata(url: string, signal?: AbortSignal): Promise<{ metadata: MediaMetadata; cached: boolean; providerId: string }> {
     const provider = providerRegistry.resolveFromUrl(url);
     const key = cacheKey([provider.id, url]);
     const hit = cache.get(key);
     if (hit) return { metadata: hit, cached: true, providerId: provider.id };
 
-    const metadata = await provider.fetchMetadata(url);
+    const metadata = await provider.fetchMetadata(url, signal);
     cache.set(key, metadata);
     return { metadata, cached: false, providerId: provider.id };
   }

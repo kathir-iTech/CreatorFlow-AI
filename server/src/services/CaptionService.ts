@@ -328,24 +328,34 @@ async function transcribeWithWhisper(rawUrl: string, providerId: string): Promis
   const provider = providerRegistry.resolveFromUrl(url);
   let plan: Awaited<ReturnType<typeof provider.buildDownloadPlan>>;
   // Part 3 hardening: entire Whisper metadata + android-fallback retry previously ran
-  // 13-17s (logs show 8.4s primary + 8.4s fallback) before failing, keeping the
-  // request window open for proxy/container restarts to interfere. Cap total budget
-  // to 10s for both attempts combined — fail fast with clean AUDIO_DOWNLOAD_FAILED
-  // rather than lingering. This is measured via logMemory below.
+  // 13-17s (logs show 8.4s primary+fallback, plus 6s subs dump = 14-15s total seen in 20:22 IST runs)
+  // before failing, keeping the request window open for proxy/container restarts to interfere.
+  // Cap total budget to 8s for both metadata attempts combined — fail fast with clean
+  // AUDIO_DOWNLOAD_FAILED rather than lingering. Observed metadata alone was 8.4s,
+  // so 8s cuts ~6-7s off total (measured via logMemory below). 10s example in prompt
+  // would not have triggered for this video (8.4 <10), so use 8s. AbortSignal ensures
+  // underlying yt-dlp Python processes are actually killed, not just orphaned.
+  let ac: AbortController | null = null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
   try {
-    const metadataPromise = infoService.getMetadata(url).then(({ metadata }) => metadata);
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Whisper metadata timeout after 10000ms (bot-check retry budget exceeded)")), 10000),
-    );
+    const timeoutMs = 8000;
+    ac = new AbortController();
+    timeoutId = setTimeout(() => ac!.abort(new Error(`Whisper metadata timeout after ${timeoutMs}ms (bot-check retry budget exceeded)`)), timeoutMs);
     const startMeta = Date.now();
-    const metadata = (await Promise.race([metadataPromise, timeoutPromise])) as import("@/providers/types.js").MediaMetadata;
+    let metadata: import("@/providers/types.js").MediaMetadata;
+    try {
+      const res = await infoService.getMetadata(url, ac.signal);
+      metadata = res.metadata;
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
     logMemory("whisper:metadata:race-won", { durationMs: Date.now() - startMeta });
     plan = provider.buildDownloadPlan(metadata, { url, kind: "audio", audioFormat: "mp3" });
   } catch (err) {
     // Granular: failure is upstream of transcription — audio was never downloadable.
-    // Includes timeout case above: err.message contains "Whisper metadata timeout"
+    // Includes timeout case above: err.message contains "Whisper metadata timeout" or AbortError
     const detail = err instanceof Error ? err.message : String(err);
-    const isTimeout = detail.includes("Whisper metadata timeout");
+    const isTimeout = detail.includes("Whisper metadata timeout") || (ac?.signal.aborted ?? false) || (err as { name?: string })?.name === "AbortError" || (err as { code?: string })?.code === "ABORT_ERR";
     logger.warn({ err, providerId, url, isTimeout }, "whisper fallback: audio metadata/download setup failed");
     if (isTimeout) {
       logMemory("whisper:metadata:timeout", { providerId });

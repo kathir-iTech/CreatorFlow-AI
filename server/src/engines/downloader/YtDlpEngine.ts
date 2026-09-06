@@ -108,6 +108,7 @@ export class YtDlpEngine {
     url: string,
     useCookies: boolean,
     providerId?: ProviderId,
+    signal?: AbortSignal,
   ): Promise<RawMetadata> {
     return ytdlpLimiter.run(async () => {
       const { ytDlp } = await resolveBinaries();
@@ -128,7 +129,7 @@ export class YtDlpEngine {
         "yt-dlp metadata fetch",
       );
       try {
-        const { stdout, stderr } = await execa(ytDlp.path, args, { timeout: 60_000, reject: true, env: ytDlpExecutionEnv });
+        const { stdout, stderr } = await execa(ytDlp.path, args, { timeout: 60_000, reject: true, env: ytDlpExecutionEnv, cancelSignal: signal });
         logger.debug(
           { durationMs: Date.now() - start, stderr: stderr?.slice(0, 500) },
           "yt-dlp metadata done",
@@ -177,7 +178,7 @@ export class YtDlpEngine {
           "yt-dlp metadata bot block; retrying with android fallback",
         );
         try {
-          const { stdout, stderr: fallbackStderr } = await execa(ytDlp.path, fallbackArgs, { timeout: 60_000, reject: true, env: ytDlpExecutionEnv });
+          const { stdout, stderr: fallbackStderr } = await execa(ytDlp.path, fallbackArgs, { timeout: 60_000, reject: true, env: ytDlpExecutionEnv, cancelSignal: signal });
           logger.debug(
             { durationMs: Date.now() - start, stderr: fallbackStderr?.slice(0, 500), fallback: true },
             "yt-dlp metadata fallback done",

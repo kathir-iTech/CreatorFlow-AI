@@ -21,13 +21,13 @@ export abstract class BaseProvider implements MediaProvider {
     return this.domains.some((d) => host === d || host.endsWith(`.${d}`));
   }
 
-  async fetchMetadata(url: string): Promise<MediaMetadata> {
+  async fetchMetadata(url: string, signal?: AbortSignal): Promise<MediaMetadata> {
     // YouTube has `requiresCookies=false` (cookies are optional) but the
     // subclass sets `useCookies=true` in the download plan; for metadata
     // we follow the same rule so cookies.txt — if present — is also used
     // for /info calls. Other providers fall back to `requiresCookies`.
     const useCookies = this.id === "youtube" ? true : this.requiresCookies;
-    const raw = await ytDlpEngine.fetchMetadata(url, useCookies, this.id);
+    const raw = await ytDlpEngine.fetchMetadata(url, useCookies, this.id, signal);
     return this.normalizeMetadata(url, raw);
   }
 
