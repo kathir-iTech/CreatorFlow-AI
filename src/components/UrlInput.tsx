@@ -44,7 +44,7 @@ export function UrlInput({ value, onValueChange, onSubmit, loading }: Props) {
         role="search"
         aria-label="Media URL"
         noValidate
-        className="glass-strong group flex w-full items-center gap-2 rounded-2xl p-2 shadow-2xl shadow-violet-900/20 transition focus-within:ring-2 focus-within:ring-violet-400/40"
+        className="group flex w-full items-center gap-2 rounded-2xl border border-white/[0.08] bg-[#1A1A1E]/80 p-2 shadow-2xl shadow-black/30 backdrop-blur-xl transition focus-within:border-[#FFB020]/30 focus-within:ring-2 focus-within:ring-[#FFB020]/20"
       >
         <label htmlFor="media-url" className="sr-only">
           Media URL
@@ -87,7 +87,7 @@ export function UrlInput({ value, onValueChange, onSubmit, loading }: Props) {
           type="submit"
           disabled={loading}
           aria-label={loading ? "Fetching" : "Fetch media info"}
-          className="inline-flex h-11 min-w-11 items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-500 to-cyan-400 px-4 text-sm font-medium text-white shadow-lg shadow-violet-500/30 transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-11 min-w-11 items-center gap-1.5 rounded-xl bg-[#FFB020] px-4 text-sm font-medium text-[#09090B] shadow-lg shadow-amber-500/20 transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFB020]/50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           <span className="hidden sm:inline">{loading ? "Fetching…" : "Fetch"}</span>

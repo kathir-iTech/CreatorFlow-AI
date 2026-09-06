@@ -94,12 +94,13 @@ export function CaptionsTab({
   const plainText = captionsToPlainText(edited);
 
   return (
-    <Card className="glass">
+    <Card className="glass overflow-hidden border-t-2 border-t-[#0EA5E9]/40">
+      <div className="h-1 w-full bg-gradient-to-r from-[#0EA5E9] to-[#10B981] opacity-60" />
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Captions className="h-4 w-4 text-violet-300" />
+            <CardTitle className="flex items-center gap-2 font-display text-base">
+              <Captions className="h-4 w-4 text-[#0EA5E9]" />
               Captions
             </CardTitle>
             <CardDescription>
@@ -213,7 +214,7 @@ export function CaptionsTab({
               </span>
             </div>
 
-            <div className="max-h-[420px] space-y-2 overflow-y-auto rounded-2xl border border-white/10 bg-black/20 p-3">
+            <div className="max-h-[420px] space-y-2 overflow-y-auto rounded-2xl border border-white/[0.06] bg-[#09090B]/60 p-3 font-mono text-sm">
               {edited.map((s, i) => (
                 <div key={i} className="flex items-start gap-2">
                   <span className="w-12 shrink-0 pt-2 text-right font-mono text-[11px] text-muted-foreground">

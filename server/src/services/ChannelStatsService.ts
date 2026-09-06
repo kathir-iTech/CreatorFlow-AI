@@ -185,6 +185,18 @@ async function fetchLive(channel: string, key: string): Promise<ChannelStatsResu
     key,
   )) as ChannelsResponse;
   const item = ch.items?.[0];
+  // Part 0 live proof: log the unmodified API response for this handle
+  // (channelId + title + raw statistics) before any transformation, so a
+  // round 5,000,000 can be traced to its true source.
+  logger.info(
+    {
+      requestedHandle: trimmed,
+      resolvedChannelId: item?.id ?? null,
+      resolvedTitle: item?.snippet?.title ?? null,
+      rawStatistics: item?.statistics ?? null,
+    },
+    "channel-stats raw YouTube API response",
+  );
   const uploads = item?.contentDetails?.relatedPlaylists?.uploads;
   if (!item?.id || !uploads) throw new Error("Channel not found");
 

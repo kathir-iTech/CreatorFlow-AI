@@ -124,8 +124,8 @@ export function SeoTab({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-violet-400" />
-          <span className="text-sm font-medium">AI SEO Generator</span>
+          <Sparkles className="h-4 w-4 text-[#FFB020]" />
+          <span className="font-display text-sm font-medium">AI SEO Generator</span>
           {result && (
             <Badge variant="secondary" className="text-[10px]">
               Groq / gpt-oss-120b

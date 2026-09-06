@@ -98,6 +98,12 @@ async function main(): Promise<void> {
   } else {
     logger.warn("GROQ_API_KEY not set — Whisper caption fallback and SEO generation will fail.");
   }
+  const youtubeDataKeyConfigured = !!env.YOUTUBE_DATA_API_KEY?.trim();
+  if (youtubeDataKeyConfigured) {
+    logger.info("YOUTUBE_DATA_API_KEY is set — live channel stats enabled.");
+  } else {
+    logger.warn("YOUTUBE_DATA_API_KEY not set — channel stats will serve example data.");
+  }
 
   const app = createApp();
   const server = app.listen(env.PORT, env.HOST, () => {

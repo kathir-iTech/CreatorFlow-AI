@@ -193,12 +193,13 @@ export function FetchTab({
   const percent = Math.round(job?.percent ?? 0);
 
   return (
-    <Card className="glass">
+    <Card className="glass overflow-hidden border-t-2 border-t-[#FFB020]/40">
+      <div className="h-1 w-full bg-gradient-to-r from-[#FFB020] to-[#0EA5E9] opacity-60" />
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Zap className="h-4 w-4 text-amber-300" />
+            <CardTitle className="flex items-center gap-2 font-display text-base">
+              <Zap className="h-4 w-4 text-[#FFB020]" />
               Fetch
               {job && (
                 <Badge variant={job.status === "succeeded" ? "default" : "secondary"}>
@@ -264,7 +265,7 @@ export function FetchTab({
               aria-label="Download progress"
             >
               <div
-                className="h-full rounded-full bg-gradient-to-r from-violet-500 to-cyan-400 transition-all"
+                className="h-full rounded-full bg-gradient-to-r from-[#FFB020] to-[#0EA5E9] transition-all"
                 style={{ width: `${percent}%` }}
               />
             </div>

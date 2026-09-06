@@ -39,81 +39,97 @@ export const Route = createFileRoute("/")({
 
 function Hero() {
   return (
-    <div className="mx-auto max-w-3xl text-center">
-      <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground backdrop-blur">
-        <Sparkles className="h-3 w-3 text-violet-300" />
-        CreatorFlow AI
-      </div>
-      <h1 className="mt-4 text-balance text-3xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
-        Automate your creator <span className="gradient-text">workflow</span>
+    <div className="mx-auto max-w-3xl text-left">
+      <h1 className="hero-resolve font-display text-[2.2rem] leading-[0.92] tracking-tight text-foreground sm:text-[3rem]">
+        Paste a YouTube link.
+        <span className="block text-[#FFB020]">Get back everything</span>
+        <span className="block">ready to publish.</span>
       </h1>
-      <p className="mt-3 text-balance text-sm text-muted-foreground sm:text-base">
-        Paste a YouTube link — we&apos;ll fetch transcripts, generate SEO, create thumbnails, and
-        schedule. One URL, full pipeline.
+      <p className="hero-resolve hero-resolve-delay-1 mt-4 max-w-[36rem] text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
+        Captions, titles, a thumbnail and a posting plan — from one link. Built on your
+        channel&apos;s real numbers.
       </p>
     </div>
   );
 }
 
-function StepIndicator({ active, states }: { active: string; states: Record<string, StepState> }) {
-  const steps = [
-    { key: "fetch", label: "Fetch" },
-    { key: "captions", label: "Captions" },
-    { key: "seo", label: "SEO" },
-    { key: "thumbnail", label: "Thumbnail" },
-    { key: "schedule", label: "Schedule" },
+function StepIndicator({ states }: { active: string; states: Record<string, StepState> }) {
+  const steps: Array<{ key: string; label: string; icon: typeof Zap }> = [
+    { key: "fetch", label: "Fetch", icon: Zap },
+    { key: "captions", label: "Captions", icon: Captions },
+    { key: "seo", label: "SEO", icon: Wand2 },
+    { key: "thumbnail", label: "Thumbnail", icon: ImageIcon },
+    { key: "schedule", label: "Schedule", icon: Calendar },
   ];
+  const doneCount = steps.filter((s) => states[s.key] === "done").length;
+  const hasWorking = steps.some((s) => states[s.key] === "working");
+  const fillPct = Math.round(((doneCount + (hasWorking ? 0.5 : 0)) / (steps.length - 1)) * 100);
+
   return (
-    <nav
-      aria-label="Pipeline progress"
-      className="glass mx-auto mt-6 flex w-full max-w-3xl flex-col gap-1 rounded-2xl p-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
-    >
-      {steps.map((s, i) => {
-        const state = states[s.key] ?? "idle";
-        const isActive = active === s.key;
-        return (
-          <div key={s.key} className="flex items-center gap-2 sm:gap-1.5">
+    <nav aria-label="Pipeline progress" className="mx-auto mt-6 w-full max-w-3xl">
+      <div className="relative rounded-2xl border border-white/[0.06] bg-[#1A1A1E]/60 px-3 py-4 backdrop-blur-xl sm:px-4">
+        {/* continuous thread */}
+        <div className="absolute left-6 right-6 top-[22px] hidden sm:block">
+          <div className="pipeline-thread">
             <div
-              className={
-                state === "done"
-                  ? "grid h-7 w-7 shrink-0 place-items-center rounded-full bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
-                  : state === "working"
-                    ? "node-active-ripple grid h-7 w-7 shrink-0 place-items-center rounded-full bg-cyan-400 text-zinc-950 shadow-lg shadow-cyan-400/40 ring-2 ring-cyan-300/60"
-                    : state === "error"
-                      ? "grid h-7 w-7 shrink-0 place-items-center rounded-full bg-rose-500 text-white shadow-lg shadow-rose-500/30"
-                      : isActive
-                        ? "grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gradient-to-r from-violet-500 to-cyan-400 text-xs font-medium text-white"
-                        : "node-pending-pulse grid h-7 w-7 shrink-0 place-items-center rounded-full bg-foreground/10 text-xs font-medium text-foreground"
-              }
-            >
-              {state === "done" ? (
-                <Check className="pop-in h-3.5 w-3.5" strokeWidth={3} />
-              ) : state === "working" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : state === "error" ? (
-                <TriangleAlert className="h-3.5 w-3.5" />
-              ) : (
-                i + 1
-              )}
-            </div>
-            <span
-              className={
-                state === "done"
-                  ? "whitespace-nowrap text-xs font-medium text-emerald-300"
-                  : "whitespace-nowrap text-xs text-muted-foreground"
-              }
-            >
-              {s.label}
-            </span>
-            {i < steps.length - 1 && (
-              <>
-                <ArrowRight className="hidden h-3 w-3 text-muted-foreground/50 sm:block" />
-                <ArrowDown className="h-3 w-3 text-muted-foreground/50 sm:hidden" />
-              </>
-            )}
+              className="pipeline-thread-fill"
+              style={{ "--fill": `${fillPct}%` } as React.CSSProperties}
+            />
           </div>
-        );
-      })}
+        </div>
+        <div className="absolute bottom-6 left-[18px] top-6 w-px sm:hidden">
+          <div className="h-full w-px bg-white/[0.08]" />
+          <div
+            className="absolute left-0 top-0 w-px bg-gradient-to-b from-[#FFB020] to-[#0EA5E9] transition-all duration-700"
+            style={{ height: `${fillPct}%` }}
+          />
+        </div>
+        <div className="relative flex flex-col gap-3 sm:flex-row sm:justify-between">
+          {steps.map((s) => {
+            const state = states[s.key] ?? "idle";
+            const Icon = s.icon;
+            return (
+              <div
+                key={s.key}
+                className="flex items-center gap-3 sm:flex-col sm:items-center sm:gap-2"
+              >
+                <div
+                  className={
+                    state === "done"
+                      ? "grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#FFB020] text-[#09090B] shadow-lg shadow-amber-500/20"
+                      : state === "working"
+                        ? "node-active-ripple grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#0EA5E9] text-white shadow-lg shadow-sky-500/30 ring-2 ring-sky-300/50"
+                        : state === "error"
+                          ? "grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#E11D48] text-white"
+                          : "grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-muted-foreground"
+                  }
+                >
+                  {state === "done" ? (
+                    <Check className="pop-in h-4 w-4" strokeWidth={2.5} />
+                  ) : state === "working" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : state === "error" ? (
+                    <TriangleAlert className="h-4 w-4" />
+                  ) : (
+                    <Icon className="h-4 w-4" />
+                  )}
+                </div>
+                <span
+                  className={
+                    state === "done"
+                      ? "text-xs font-medium text-[#FFB020] sm:text-[11px]"
+                      : state === "working"
+                        ? "text-xs font-medium text-[#0EA5E9] sm:text-[11px]"
+                        : "text-xs text-muted-foreground sm:text-[11px]"
+                  }
+                >
+                  {s.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </nav>
   );
 }

@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { api, type ChannelStats } from "@/lib/api";
+import { useCountUp } from "@/lib/useCountUp";
 
 const STORAGE_KEY = "creatorflow-scheduled-posts";
 
@@ -87,11 +88,37 @@ function savePosts(posts: ScheduledPost[]) {
   }
 }
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
+function StatCard({
+  label,
+  value,
+  isNumber = true,
+}: {
+  label: string;
+  value: string | number;
+  isNumber?: boolean;
+}) {
+  const numeric =
+    typeof value === "number" ? value : Number(String(value).replace(/[^0-9]/g, "")) || 0;
+  const animated = useCountUp(isNumber && typeof value === "number" ? value : numeric);
+  const display = isNumber && typeof value === "number" ? animated.toLocaleString() : value;
   return (
-    <div className="rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2">
-      <div className="text-[10px] text-muted-foreground">{label}</div>
-      <div className="text-lg font-semibold text-foreground">{value}</div>
+    <div className="rounded-lg border border-white/[0.06] bg-[#1A1A1E]/60 px-3 py-2">
+      <div className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground">{label}</div>
+      <div
+        className={`text-lg font-semibold ${isNumber ? "stat-number text-foreground" : "text-muted-foreground"}`}
+      >
+        {isNumber ? display : value}
+      </div>
+    </div>
+  );
+}
+
+function HiddenStatCard({ label }: { label: string }) {
+  return (
+    <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.02] px-3 py-2">
+      <div className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground">{label}</div>
+      <div className="text-sm font-medium italic text-muted-foreground">Hidden by creator</div>
+      <div className="text-[10px] text-muted-foreground/70">Not public</div>
     </div>
   );
 }
@@ -439,24 +466,21 @@ export function ScheduleTab({
                 </Button>
               </form>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <StatCard
-                  label="Subscribers"
-                  value={
-                    stats.subscribersHidden
-                      ? "Hidden by creator"
-                      : (stats.subscribers ?? 0).toLocaleString()
-                  }
-                />
-                <StatCard label="Total Views" value={stats.totalViews.toLocaleString()} />
+                {stats.subscribersHidden ? (
+                  <HiddenStatCard label="Subscribers" />
+                ) : (
+                  <StatCard label="Subscribers" value={stats.subscribers ?? 0} />
+                )}
+                <StatCard label="Total Views" value={stats.totalViews} />
                 <StatCard label="Videos" value={stats.totalVideos} />
-                <StatCard label="Avg Views" value={stats.avgViewsPerVideo.toLocaleString()} />
+                <StatCard label="Avg Views" value={stats.avgViewsPerVideo} />
               </div>
             </CardContent>
           </Card>
 
           {/* Publish Readiness — synthesis of this video + this channel */}
           {(readinessLoading || readiness) && (
-            <Card className="glass border-violet-500/20">
+            <Card className="glass overflow-hidden border-t-2 border-t-[#FFB020]/40">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-1.5 text-sm">
                   <Sparkles className="h-4 w-4 text-violet-400" />

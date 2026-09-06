@@ -49,22 +49,22 @@ export function Header() {
           aria-label="CreatorFlow AI home"
           className="group flex min-w-0 items-center gap-2.5"
         >
-          <div className="float-slow relative grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-violet-500 to-cyan-400 shadow-lg shadow-violet-500/30">
-            <Sparkles className="h-5 w-5 text-white" />
+          <div className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#FFB020] shadow-lg shadow-amber-500/20">
+            <Sparkles className="h-5 w-5 text-[#09090B]" />
           </div>
           <div className="min-w-0 leading-tight">
-            <div className="truncate text-sm font-semibold tracking-tight">
-              CreatorFlow <span className="gradient-text">AI</span>
+            <div className="truncate font-display text-[15px] font-medium tracking-tight">
+              CreatorFlow <span className="text-[#FFB020]">AI</span>
             </div>
-            <div className="hidden truncate text-[10px] uppercase tracking-[0.18em] text-muted-foreground sm:block">
-              Captions · SEO · Thumbnails · Schedule
+            <div className="hidden truncate text-[10px] uppercase tracking-[0.14em] text-muted-foreground sm:block">
+              captions · seo · thumbnail · schedule
             </div>
           </div>
         </Link>
 
         <nav
           aria-label="Primary"
-          className="glass hidden items-center gap-1 rounded-full p-1 md:flex"
+          className="hidden items-center gap-1 rounded-full border border-white/[0.06] bg-[#1A1A1E]/60 p-1 backdrop-blur-xl md:flex"
         >
           {NAV.map(({ to, label, icon: Icon }) => {
             const active = location.pathname === to;
@@ -74,9 +74,9 @@ export function Header() {
                 to={to}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60",
+                  "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFB020]/50",
                   active
-                    ? "bg-foreground/10 text-foreground"
+                    ? "bg-[#FFB020] text-[#09090B]"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -88,16 +88,16 @@ export function Header() {
         </nav>
 
         <div className="flex shrink-0 items-center gap-2">
-          <div className="hidden sm:inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-muted-foreground">
-            Beta
-          </div>
+          <span className="hidden text-[11px] tracking-[0.12em] text-muted-foreground sm:inline">
+            BETA
+          </span>
           <ThemeToggle />
         </div>
       </div>
 
       <nav
         aria-label="Primary mobile"
-        className="glass mx-4 mb-2 flex items-center justify-around rounded-2xl p-1 md:hidden"
+        className="mx-4 mb-2 flex items-center justify-around rounded-2xl border border-white/[0.06] bg-[#1A1A1E]/60 p-1 backdrop-blur-xl md:hidden"
       >
         {NAV.map(({ to, label, icon: Icon }) => {
           const active = location.pathname === to;
@@ -107,8 +107,8 @@ export function Header() {
               to={to}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-2 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60",
-                active ? "bg-foreground/10 text-foreground" : "text-muted-foreground",
+                "flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-2 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFB020]/50",
+                active ? "bg-[#FFB020] text-[#09090B]" : "text-muted-foreground",
               )}
             >
               <Icon className="h-4 w-4" />
