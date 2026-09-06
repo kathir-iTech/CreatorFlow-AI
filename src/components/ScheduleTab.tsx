@@ -394,6 +394,7 @@ export function ScheduleTab({
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 shrink-0"
+                aria-label={`Remove ${p.title}`}
                 onClick={() => removePost(p.id)}
               >
                 <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
@@ -426,6 +427,7 @@ export function ScheduleTab({
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6"
+                  aria-label={`Remove ${p.title}`}
                   onClick={() => removePost(p.id)}
                 >
                   <Trash2 className="h-3 w-3" />
@@ -469,6 +471,11 @@ export function ScheduleTab({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              {stats.demo && (
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                  Preview data — connect a YouTube Data API key for live stats. Set <code className="rounded bg-black/20 px-1">YOUTUBE_DATA_API_KEY</code> in Render.
+                </div>
+              )}
               <form
                 className="flex gap-2"
                 onSubmit={(e) => {

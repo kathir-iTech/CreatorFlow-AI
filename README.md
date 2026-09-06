@@ -20,9 +20,12 @@ One URL drives a five-step pipeline in a single Studio page:
 
 1. **Fetch** — paste any YouTube link (`watch`, `youtu.be` short links
    including `?si=` share parameters, Shorts, embeds, mobile links). The
-   backend normalizes it to a canonical video ID, then `yt-dlp` resolves
-   metadata and formats through a provider abstraction (YouTube today,
-   Instagram/Facebook partially).
+   backend normalizes it to a canonical video ID, then resolves metadata
+   via YouTube Data API (if `YOUTUBE_DATA_API_KEY` set, no IP block) or
+   `yt-dlp` with Piped/Cobalt fallbacks on `BOT_CHECK`; provider abstraction
+   is YouTube (full), Instagram (public reels/posts fully, login-gated needs
+   `cookies.txt` — `requiresCookies false` but `useCookies true`), Facebook
+   (requires `cookies.txt` — `requiresCookies true`, public may still need login).
 2. **Captions** — three ordered paths: free native YouTube captions first,
    then a `yt-dlp` subtitle dump, then Groq Whisper transcription as a last
    resort. The transcript is editable in-line and exports to `.srt` / `.vtt` /

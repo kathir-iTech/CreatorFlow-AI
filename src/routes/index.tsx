@@ -158,13 +158,13 @@ function StepIndicator({
                   }
                 >
                   {state === "done" ? (
-                    <Check className="pop-in h-4 w-4" strokeWidth={2.5} />
+                    <Check className="pop-in h-4 w-4" strokeWidth={2.5} aria-hidden="true" />
                   ) : state === "working" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                   ) : state === "error" ? (
-                    <TriangleAlert className="h-4 w-4" />
+                    <TriangleAlert className="h-4 w-4" aria-hidden="true" />
                   ) : (
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-4 w-4" aria-hidden="true" />
                   )}
                 </span>
                 <span
