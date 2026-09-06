@@ -1,4 +1,4 @@
-const KEY = "mediahub-pro:theme";
+const KEY = "creatorflow:theme";
 export type Theme = "dark" | "light";
 
 export function getInitialTheme(): Theme {

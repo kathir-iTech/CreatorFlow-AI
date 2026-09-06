@@ -1,8 +1,8 @@
-# MediaHub Pro — Backend
+# CreatorFlow AI — Backend
 
 Standalone Node.js + Express + TypeScript service that downloads media from
 YouTube, Instagram, and Facebook via `yt-dlp` and post-processes with `ffmpeg`.
-This service is **independent of the Lovable frontend** — it can run on any
+This service is **independent of the frontend** — it can run on any
 host with Node 20+, ffmpeg, and yt-dlp.
 
 ## Quick start (local)
@@ -74,8 +74,8 @@ How this backend handles it:
   and `durationMs`.
 
 - Frontend guidance: show the friendly message
-  *"YouTube is temporarily requiring verification for this video. Please try
-  another video or try again later."* — never display raw yt-dlp output.
+  _"YouTube is temporarily requiring verification for this video. Please try
+  another video or try again later."_ — never display raw yt-dlp output.
 
 - Unit tests covering detection patterns and false-positive guards live in
   `test/unit/BotCheckDetector.test.ts`.
@@ -108,17 +108,17 @@ Adding a new platform = one file under `providers/<name>/` + one
 
 All responses follow `{ data, error, requestId }`.
 
-| Method | Path | Purpose |
-|---|---|---|
-| `POST` | `/api/v1/info` | `{ url }` → metadata + formats (cached 10 min) |
-| `POST` | `/api/v1/downloads` | `{ url, kind, formatId?, maxHeight?, audioFormat? }` → `{ jobId }` |
-| `GET`  | `/api/v1/downloads/:id` | Job snapshot |
-| `GET`  | `/api/v1/downloads/:id/events` | **SSE** progress stream |
-| `GET`  | `/api/v1/downloads/:id/file` | Stream the produced file, **deleted on completion** |
-| `DELETE` | `/api/v1/downloads/:id` | Cancel queued/running job |
-| `GET`  | `/api/v1/stream?url=&kind=` | Live yt-dlp → response pipe (no disk) |
-| `GET`  | `/api/v1/providers` | List enabled providers |
-| `GET`  | `/healthz` `/readyz` `/version` `/system` | Ops |
+| Method   | Path                                      | Purpose                                                            |
+| -------- | ----------------------------------------- | ------------------------------------------------------------------ |
+| `POST`   | `/api/v1/info`                            | `{ url }` → metadata + formats (cached 10 min)                     |
+| `POST`   | `/api/v1/downloads`                       | `{ url, kind, formatId?, maxHeight?, audioFormat? }` → `{ jobId }` |
+| `GET`    | `/api/v1/downloads/:id`                   | Job snapshot                                                       |
+| `GET`    | `/api/v1/downloads/:id/events`            | **SSE** progress stream                                            |
+| `GET`    | `/api/v1/downloads/:id/file`              | Stream the produced file, **deleted on completion**                |
+| `DELETE` | `/api/v1/downloads/:id`                   | Cancel queued/running job                                          |
+| `GET`    | `/api/v1/stream?url=&kind=`               | Live yt-dlp → response pipe (no disk)                              |
+| `GET`    | `/api/v1/providers`                       | List enabled providers                                             |
+| `GET`    | `/healthz` `/readyz` `/version` `/system` | Ops                                                                |
 
 ### Example
 
@@ -193,14 +193,14 @@ execution time.
 
 ## Deployment
 
-| Target | Recipe |
-|---|---|
-| Local | `npm install && npm run dev` |
-| Docker | `docker compose -f deploy/docker/docker-compose.yml up --build` |
-| Railway | Point to `deploy/railway/railway.json` (uses the Dockerfile) |
-| Render | `deploy/render/render.yaml` |
-| Replit | `deploy/replit/.replit` + `replit.nix` (nix provides ffmpeg + yt-dlp) |
-| Oracle Linux VM | `sudo bash deploy/oracle/install.sh` then deploy build to `/opt/mediahub` and `systemctl start mediahub` |
+| Target          | Recipe                                                                                                   |
+| --------------- | -------------------------------------------------------------------------------------------------------- |
+| Local           | `npm install && npm run dev`                                                                             |
+| Docker          | `docker compose -f deploy/docker/docker-compose.yml up --build`                                          |
+| Railway         | Point to `deploy/railway/railway.json` (uses the Dockerfile)                                             |
+| Render          | `deploy/render/render.yaml`                                                                              |
+| Replit          | `deploy/replit/.replit` + `replit.nix` (nix provides ffmpeg + yt-dlp)                                    |
+| Oracle Linux VM | `sudo bash deploy/oracle/install.sh` then deploy build to `/opt/creatorflow` and `systemctl start creatorflow` |
 
 `/readyz` is the standard health gate.
 

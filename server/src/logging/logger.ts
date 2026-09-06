@@ -3,7 +3,7 @@ import { env, isDev } from "@/config/env.js";
 
 export const logger = pino({
   level: env.LOG_LEVEL,
-  base: { service: "mediahub-api" },
+  base: { service: "creatorflow-api" },
   redact: {
     paths: [
       "req.headers.cookie",

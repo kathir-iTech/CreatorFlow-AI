@@ -19,7 +19,7 @@ async function tryFetch(url: string, timeoutMs: number) {
     const res = await fetch(url, {
       method: "GET",
       signal: AbortSignal.timeout(timeoutMs),
-      headers: { "user-agent": "mediahub-diagnostics/1.0" },
+      headers: { "user-agent": "creatorflow-diagnostics/1.0" },
     });
     const text = await res.text().catch(() => "");
     return {

@@ -57,7 +57,7 @@ const schema = z.object({
   // directory is read-only in many serverless / container deployments, so
   // writing yt-dlp output there fails with EACCES/EROFS. Override with
   // TMP_DIR to pin a custom writeable path.
-  TMP_DIR: z.string().default(path.join(os.tmpdir(), "mediahub")),
+  TMP_DIR: z.string().default(path.join(os.tmpdir(), "creatorflow")),
   MAX_FILE_SIZE_MB: z.coerce.number().int().positive().default(2048),
   JOB_TIMEOUT_MS: z.coerce
     .number()

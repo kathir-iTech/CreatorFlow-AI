@@ -1,11 +1,13 @@
 /**
- * MediaHub Pro — thin REST client for the backend.
+ * CreatorFlow AI — thin REST client for the backend.
  * The frontend NEVER executes yt-dlp. All work is delegated to the API.
  */
 
 const RAW_BASE =
   (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_BASE_URL) ||
-  (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1"
+  (typeof window !== "undefined" &&
+  window.location.hostname !== "localhost" &&
+  window.location.hostname !== "127.0.0.1"
     ? "https://creatorflow-ai-backend-lin3.onrender.com"
     : "http://localhost:8787");
 
@@ -50,7 +52,7 @@ async function request<T>(path: string, init?: RequestInit, retry = 1): Promise<
     } catch (e) {
       lastErr = new ApiClientError(0, {
         code: "NETWORK",
-        message: "Cannot reach the MediaHub API. Check your connection or backend URL.",
+        message: "Cannot reach the CreatorFlow AI API. Check your connection or backend URL.",
       });
       if (attempt < retry) {
         await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
@@ -72,7 +74,11 @@ async function request<T>(path: string, init?: RequestInit, retry = 1): Promise<
       };
       const apiErr = new ApiClientError(res.status, err);
       // Retry once for 502/503/429 (transient Render cold-start / rate-limit)
-      if (attempt < retry && (res.status === 502 || res.status === 503 || res.status === 429) && apiErr.retryable !== false) {
+      if (
+        attempt < retry &&
+        (res.status === 502 || res.status === 503 || res.status === 429) &&
+        apiErr.retryable !== false
+      ) {
         await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
         lastErr = apiErr;
         continue;

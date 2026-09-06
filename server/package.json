@@ -1,8 +1,8 @@
 {
-  "name": "mediahub-pro-api",
+  "name": "creatorflow-ai-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "MediaHub Pro backend — Express + yt-dlp + FFmpeg",
+  "description": "CreatorFlow AI backend — Express + yt-dlp + FFmpeg",
   "type": "module",
   "engines": {
     "node": ">=20"

@@ -15,7 +15,12 @@ function getProxyStatus(url?: string) {
   if (!url) return { configured: false as const };
   try {
     const u = new URL(url);
-    return { configured: true as const, protocol: u.protocol, hostname: u.hostname, port: u.port ? Number(u.port) : undefined };
+    return {
+      configured: true as const,
+      protocol: u.protocol,
+      hostname: u.hostname,
+      port: u.port ? Number(u.port) : undefined,
+    };
   } catch {
     return { configured: true as const, protocol: "invalid", hostname: "invalid" };
   }
@@ -33,7 +38,7 @@ async function main(): Promise<void> {
       env: env.NODE_ENV,
       gitCommit: process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || "unknown",
     },
-    "Booting MediaHub Pro API",
+    "Booting CreatorFlow AI API",
   );
   logMemory("boot:start");
 
@@ -54,7 +59,11 @@ async function main(): Promise<void> {
   cleanupService.start();
   startCookieCanary();
 
-  const youtubeHardening = !!(env.YOUTUBE_USER_AGENT && env.YOUTUBE_VISITOR_DATA && env.YOUTUBE_PO_TOKEN);
+  const youtubeHardening = !!(
+    env.YOUTUBE_USER_AGENT &&
+    env.YOUTUBE_VISITOR_DATA &&
+    env.YOUTUBE_PO_TOKEN
+  );
   const missingHardening = [
     !env.YOUTUBE_USER_AGENT && "YOUTUBE_USER_AGENT",
     !env.YOUTUBE_VISITOR_DATA && "YOUTUBE_VISITOR_DATA",
@@ -67,7 +76,12 @@ async function main(): Promise<void> {
 
   const proxyStatus = getProxyStatus(getYtDlpProxyUrl());
   logger.info(
-    { proxyConfigured: proxyStatus.configured, proxyProtocol: proxyStatus.protocol, proxyHostname: proxyStatus.hostname, proxyPort: proxyStatus.port },
+    {
+      proxyConfigured: proxyStatus.configured,
+      proxyProtocol: proxyStatus.protocol,
+      proxyHostname: proxyStatus.hostname,
+      proxyPort: proxyStatus.port,
+    },
     `Download proxy ${proxyStatus.configured ? "configured" : "not configured"}`,
   );
 
@@ -117,8 +131,18 @@ async function main(): Promise<void> {
   function envPresence(name: string) {
     const parsed = (env as Record<string, unknown>)[name];
     const raw = process.env[name];
-    const value = typeof parsed === "string" && parsed.length > 0 ? parsed : typeof raw === "string" ? raw : undefined;
-    return { present: typeof value === "string" && value.length > 0, length: value?.length ?? 0, source: typeof parsed === "string" && parsed.length > 0 ? "env" : raw ? "process.env" : "none" };
+    const value =
+      typeof parsed === "string" && parsed.length > 0
+        ? parsed
+        : typeof raw === "string"
+          ? raw
+          : undefined;
+    return {
+      present: typeof value === "string" && value.length > 0,
+      length: value?.length ?? 0,
+      source:
+        typeof parsed === "string" && parsed.length > 0 ? "env" : raw ? "process.env" : "none",
+    };
   }
   logger.info(
     {

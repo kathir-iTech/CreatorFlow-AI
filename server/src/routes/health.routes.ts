@@ -35,7 +35,7 @@ healthRouter.get("/readyz", async (_req, res) => {
 
 healthRouter.get("/version", (_req, res) => {
   res.json({
-    name: "mediahub-pro-api",
+    name: "creatorflow-ai-backend",
     version: process.env.npm_package_version ?? "0.0.0",
     gitCommit: GIT_COMMIT,
     bootTime: BOOT_TIME,

@@ -49,7 +49,9 @@ function requireToken(req: Request, res: Response, next: NextFunction): void {
   }
   const got = req.header("x-debug-token");
   if (!got || got !== expected) {
-    res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Invalid or missing x-debug-token" } });
+    res
+      .status(401)
+      .json({ error: { code: "UNAUTHORIZED", message: "Invalid or missing x-debug-token" } });
     return;
   }
   next();
@@ -70,7 +72,10 @@ debugRouter.get("/diagnostics", requireToken, async (_req, res, next) => {
         env: {
           PROXY_URL: envPresence("PROXY_URL"),
           DOWNLOAD_PROXY_URL: envPresence("DOWNLOAD_PROXY_URL"),
-          YOUTUBE_GETPOT_BASE_URL: { ...envPresence("YOUTUBE_GETPOT_BASE_URL"), effective: env.YOUTUBE_GETPOT_BASE_URL },
+          YOUTUBE_GETPOT_BASE_URL: {
+            ...envPresence("YOUTUBE_GETPOT_BASE_URL"),
+            effective: env.YOUTUBE_GETPOT_BASE_URL,
+          },
           COOKIES_TXT_BASE64: envPresence("COOKIES_TXT_BASE64"),
           COOKIES_TXT: envPresence("COOKIES_TXT"),
           COOKIES_FILE: envPresence("COOKIES_FILE"),
@@ -117,7 +122,7 @@ debugRouter.get("/pot-test", requireToken, async (req, res) => {
       signal: AbortSignal.timeout(15_000),
       headers: {
         "content-type": "application/json",
-        "user-agent": "mediahub-diagnostics/1.0",
+        "user-agent": "creatorflow-diagnostics/1.0",
       },
       body: JSON.stringify({ content_binding: contentBinding }),
     });
@@ -129,8 +134,12 @@ debugRouter.get("/pot-test", requireToken, async (req, res) => {
       parsed = null;
     }
     const tokenLen =
-      parsed && typeof parsed === "object" && parsed !== null && "po_token" in parsed && typeof (parsed as { po_token?: unknown }).po_token === "string"
-        ? ((parsed as { po_token: string }).po_token).length
+      parsed &&
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "po_token" in parsed &&
+      typeof (parsed as { po_token?: unknown }).po_token === "string"
+        ? (parsed as { po_token: string }).po_token.length
         : 0;
     res.status(200).json({
       data: {
@@ -186,9 +195,7 @@ debugRouter.get("/run-raw", requireToken, async (req, res) => {
         "youtube:player_client=android,tv_simply,web",
         // The sidecar runs in-container (see docker-entrypoint.sh), so the
         // base URL is always passed — omitting it was the old silent failure.
-        ...(potBase
-          ? ["--extractor-args", `youtubepot-bgutilhttp:base_url=${potBase}`]
-          : []),
+        ...(potBase ? ["--extractor-args", `youtubepot-bgutilhttp:base_url=${potBase}`] : []),
         "--skip-download",
         "--dump-single-json",
         rawUrl,
@@ -201,7 +208,10 @@ debugRouter.get("/run-raw", requireToken, async (req, res) => {
         `URL: ${rawUrl}\nYTDLP: ${ytDlp.path}\nEXIT: ${result.exitCode}\n\n===== STDOUT (truncated 8k) =====\n${(result.stdout ?? "").slice(0, 8000)}\n\n===== STDERR (full verbose log — read this) =====\n${result.stderr}\n`,
       );
   } catch (err) {
-    res.type("text/plain").status(500).send(String((err as Error).stack ?? err));
+    res
+      .type("text/plain")
+      .status(500)
+      .send(String((err as Error).stack ?? err));
   }
 });
 
@@ -232,11 +242,9 @@ debugRouter.get("/download-raw", requireToken, async (req, res) => {
         "/tmp/test-1080.mp4",
         "--extractor-args",
         "youtube:player_client=android,tv_simply,web",
-        ...(potBase
-          ? ["--extractor-args", `youtubepot-bgutilhttp:base_url=${potBase}`]
-          : []),
+        ...(potBase ? ["--extractor-args", `youtubepot-bgutilhttp:base_url=${potBase}`] : []),
         "--cookies",
-        "/tmp/mediahub/cookies.txt",
+        "/tmp/creatorflow/cookies.txt",
         rawUrl,
       ],
       { reject: false, timeout: 180_000 },
