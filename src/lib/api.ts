@@ -202,7 +202,7 @@ export type CaptionSegment = {
 export type CaptionsResult = {
   videoId?: string;
   providerId: string;
-  source: "native" | "whisper";
+  source: "native" | "whisper" | "piped";
   language?: string;
   isAuto?: boolean;
   captions: CaptionSegment[];

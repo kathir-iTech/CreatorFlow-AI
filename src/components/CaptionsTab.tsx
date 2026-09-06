@@ -62,11 +62,11 @@ export function CaptionsTab({
             description: `${data.captions.length} lines — live captions will return when unblocked. Try another video.`,
           });
         } else {
-          const label =
-            data.source === "native" ? "Native YouTube captions" : "Groq Whisper transcription";
-          toast.success(label, {
-            description: `${data.captions.length} lines${data.isAuto ? " (auto-generated)" : ""} — ready to edit.`,
-          });
+        const label =
+          data.source === "native" ? "Native YouTube captions" : data.source === "piped" ? "Piped captions" : "Groq Whisper transcription";
+        toast.success(label, {
+          description: `${data.captions.length} lines${data.isAuto ? " (auto-generated)" : ""} — ready to edit.`,
+        });
         }
         onTranscript?.(captionsToPlainText(data.captions), data);
       } catch (e) {
@@ -126,8 +126,8 @@ export function CaptionsTab({
               </Badge>
             )}
             {result && (
-              <Badge variant={result.source === "native" ? "default" : "secondary"}>
-                {result.source === "native" ? "native captions" : "Groq Whisper"}
+              <Badge variant={result.source === "native" ? "default" : result.source === "piped" ? "secondary" : "secondary"}>
+                {result.source === "native" ? "native captions" : result.source === "piped" ? "piped" : "Groq Whisper"}
                 {result.isAuto ? " · auto" : ""}
               </Badge>
             )}
