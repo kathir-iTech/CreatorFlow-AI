@@ -301,7 +301,7 @@ function Index() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <Toaster richColors position="top-right" />
       <section className="pt-6 sm:pt-10">
         <Hero />
@@ -309,6 +309,23 @@ function Index() {
           <UrlInput value={url} onValueChange={handleValueChange} onSubmit={handleSubmit} />
         </div>
         <StepIndicator active={tab} states={stepStates} onSelect={setTab} />
+        {/* Pro-studio feature strip — shows pipeline value prop without duplicating nav */}
+        <div className="mx-auto mt-6 grid max-w-3xl grid-cols-2 gap-2 sm:grid-cols-5">
+          {[
+            { k: "Fetch", d: "yt-dlp + Data API", c: "#FFB020" },
+            { k: "Captions", d: "native → Whisper", c: "#0EA5E9" },
+            { k: "SEO", d: "Groq · titles/tags", c: "#10B981" },
+            { k: "Thumbnail", d: "6 frames + canvas", c: "#A78BFA" },
+            { k: "Schedule", d: "Data API live stats", c: "#F472B6" },
+          ].map((f) => (
+            <div key={f.k} className="rounded-xl border border-white/[0.05] bg-[#1A1A1E]/40 px-2 py-2 text-center backdrop-blur">
+              <div className="text-[10px] tracking-[0.12em] text-muted-foreground">{f.k}</div>
+              <div className="mt-0.5 text-[11px] font-medium" style={{ color: f.c }}>
+                {f.d}
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="mx-auto w-full max-w-3xl">

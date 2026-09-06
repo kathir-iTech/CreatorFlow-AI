@@ -3,6 +3,7 @@ import { Sparkles, History, Activity, Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { applyTheme, getInitialTheme, type Theme } from "@/lib/theme";
+import { useApiHealth } from "@/hooks/useApiHealth";
 
 const NAV = [
   { to: "/", label: "Studio", icon: Sparkles },
@@ -30,6 +31,19 @@ function ThemeToggle() {
     >
       {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
     </button>
+  );
+}
+
+function LiveDot() {
+  const { state } = useApiHealth(15000);
+  const color =
+    state === "online" ? "bg-emerald-400 shadow-emerald-400/50" : state === "degraded" ? "bg-amber-400 shadow-amber-400/50" : state === "checking" ? "bg-sky-400 shadow-sky-400/50 animate-pulse" : "bg-rose-400 shadow-rose-400/50";
+  const label = state === "online" ? "LIVE" : state === "degraded" ? "DEGRADED" : state === "checking" ? "CHECKING" : "OFFLINE";
+  return (
+    <span className="hidden items-center gap-1.5 rounded-full border border-white/[0.06] bg-[#1A1A1E]/60 px-2.5 py-1 backdrop-blur-xl sm:inline-flex" title={`Backend ${label}`}>
+      <span className={`h-2 w-2 rounded-full shadow ${color}`} />
+      <span className="text-[10px] tracking-[0.12em] text-muted-foreground">{label}</span>
+    </span>
   );
 }
 
@@ -88,6 +102,7 @@ export function Header() {
         </nav>
 
         <div className="flex shrink-0 items-center gap-2">
+          <LiveDot />
           <span className="hidden text-[11px] tracking-[0.12em] text-muted-foreground sm:inline">
             BETA
           </span>

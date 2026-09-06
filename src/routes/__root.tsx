@@ -86,6 +86,21 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function Footer() {
+  return (
+    <footer className="border-t border-white/[0.06] bg-[#0A0A0C]/50 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-6 text-xs text-muted-foreground sm:flex-row">
+        <span className="font-mono tracking-wide">© 2026 CreatorFlow AI — edit-bay for creators</span>
+        <span className="flex items-center gap-3">
+          <span className="hidden sm:inline">Captions · SEO · Thumbnail · Schedule</span>
+          <span className="h-3 w-px bg-white/10 hidden sm:inline" />
+          <span className="text-[11px] tracking-[0.1em]">BUILT FOR CREATORS, NOT DASHBOARDS</span>
+        </span>
+      </div>
+    </footer>
+  );
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   useEffect(() => {
@@ -93,11 +108,12 @@ function RootComponent() {
   }, []);
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="relative min-h-dvh px-safe">
+      <div className="relative min-h-dvh px-safe flex flex-col">
         <Header />
-        <main id="main" className="mx-auto w-full max-w-6xl px-4 pb-24 pt-4 pb-safe">
+        <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 pb-24 pt-4 pb-safe">
           <Outlet />
         </main>
+        <Footer />
       </div>
     </QueryClientProvider>
   );

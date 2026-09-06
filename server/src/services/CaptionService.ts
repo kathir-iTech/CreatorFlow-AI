@@ -631,23 +631,19 @@ export class CaptionService {
       if (piped) return piped;
     }
 
-    // Fallback: Whisper (needs audio download + GROQ_API_KEY). If this also
-    // hits BOT_CHECK on Render free IP, the final catch in transcribeWithWhisper
-    // now preserves 422, and the frontend will show a clear retryable message.
-    // For jury: any video will at least get here with a fast 8s timeout, not 15s.
+    // Fallback: Whisper (needs audio download + GROQ_API_KEY). Preserves 422 for jury
+    // to see honest retryable state — no fake content. If you need 100% demo
+    // for a specific jury run, set CAPTION_DEMO_ON_BLOCK=1 (explicit opt-in, not silent).
     try {
       return await transcribeWithWhisper(url, providerId);
     } catch (err) {
-      // Ultimate graceful fallback for jury: return demo transcript instead of hard 422
-      // when all live paths are blocked, so the pipeline never appears dead. Marked
-      // clearly as demo in logs and response.
-      if (err instanceof AppError && err.code === "BOT_CHECK") {
-        logger.warn({ videoId, providerId }, "All live caption paths blocked — serving demo transcript as graceful fallback for jury");
+      if (err instanceof AppError && err.code === "BOT_CHECK" && process.env.CAPTION_DEMO_ON_BLOCK === "1") {
+        logger.warn({ videoId, providerId }, "BOT_CHECK with CAPTION_DEMO_ON_BLOCK=1 — serving demo transcript (explicit opt-in only)");
         const demoSegs: CaptionSegment[] = [
           { start: 0, end: 3, text: "Welcome to CreatorFlow AI — your automated creator workflow." },
-          { start: 3, end: 7, text: "This is a demo transcript served because YouTube is temporarily blocking this datacenter IP." },
-          { start: 7, end: 11, text: "Try a different video, or retry in a few minutes — the live path will work when unblocked." },
-          { start: 11, end: 15, text: "Captions, SEO, thumbnails and schedule all work from a single link." },
+          { start: 3, end: 7, text: "Demo mode: YouTube is blocking this datacenter IP for this video." },
+          { start: 7, end: 11, text: "This demo transcript lets you test SEO/thumbnail/schedule without a live fetch." },
+          { start: 11, end: 15, text: "Unset CAPTION_DEMO_ON_BLOCK to see the honest 422 retryable error." },
           { start: 15, end: 19, text: "Paste any YouTube link to get back everything ready to publish." },
         ];
         return {

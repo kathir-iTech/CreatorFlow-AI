@@ -11,8 +11,10 @@ export interface BuildArgsInput {
 // Put `android` FIRST: the web client is now SABR-restricted and many of
 // its https formats are skipped ("YouTube is forcing SABR streaming"),
 // collapsing the format ladder. `tv_simply` is the next-best non-SABR
-// fallback, and `web` stays last as a final resort.
+// fallback, and `web` stays last as a final resort. Added `ios`/`web_creator`
+// as explicit fallbacks (prompt Part 4) — ios often passes when android is blocked.
 export const YOUTUBE_PLAYER_CLIENTS = "android,tv_simply,web";
+export const YOUTUBE_FALLBACK_CLIENTS = ["android", "ios", "web_creator", "tv", "mediaconnect"] as const;
 
 /**
  * Build the `youtube:` extractor-args clause (player_client, skip, optional
@@ -41,8 +43,8 @@ export function buildYoutubeExtractorArgs(): string {
   return `youtube:${clauses.join(";")}`;
 }
 
-function buildYoutubeBotFallbackExtractorArgs(): string {
-  return `youtube:player_client=android`;
+function buildYoutubeBotFallbackExtractorArgs(client: string = "android"): string {
+  return `youtube:player_client=${client}`;
 }
 
 /**
@@ -72,12 +74,18 @@ function pushCommonNetworkArgs(args: string[], userAgent = DEFAULT_USER_AGENT): 
   args.push("--remote-components", "ejs:github");
 }
 
-export function addYoutubeBotFallbackArgs(args: string[]): string[] {
-  const out = [...args, "--extractor-args", buildYoutubeBotFallbackExtractorArgs()];
+export function addYoutubeBotFallbackArgs(args: string[], client: string = "android"): string[] {
+  const out = [...args, "--extractor-args", buildYoutubeBotFallbackExtractorArgs(client)];
   const pot = buildBgutilPotExtractorArgs();
   if (pot) out.push("--extractor-args", pot);
   out.push("--sleep-interval", "2");
   return out;
+}
+
+export function getNextFallbackClient(last: string): string | null {
+  const idx = YOUTUBE_FALLBACK_CLIENTS.indexOf(last as never);
+  if (idx === -1 || idx + 1 >= YOUTUBE_FALLBACK_CLIENTS.length) return null;
+  return YOUTUBE_FALLBACK_CLIENTS[idx + 1]!;
 }
 
 /**

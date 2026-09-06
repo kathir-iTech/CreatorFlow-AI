@@ -3,7 +3,7 @@ import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { resolveBinaries } from "@/runtime/BinaryResolver.js";
 import { getCookiesPathFor } from "@/security/CookiesDetector.js";
-import { addYoutubeBotFallbackArgs, buildYtDlpArgs, buildMetadataArgs } from "./YtDlpArgsBuilder.js";
+import { addYoutubeBotFallbackArgs, buildYtDlpArgs, buildMetadataArgs, YOUTUBE_FALLBACK_CLIENTS } from "./YtDlpArgsBuilder.js";
 import { parseProgressLine, type ProgressEvent } from "./ProgressParser.js";
 import { logger } from "@/logging/logger.js";
 import { AppError, BotCheckError, CookiesRequiredError, ProviderError } from "@/errors/AppError.js";
@@ -166,55 +166,70 @@ export class YtDlpEngine {
         stdout: execaErr.stdout,
       });
       if (mapped.code === "BOT_CHECK") {
-        const fallbackArgs = addYoutubeBotFallbackArgs(args);
-        logger.warn(
-          {
-            provider: providerId,
-            ytDlpVersion: ytDlp.version,
-            cookiesLoaded,
-            videoId: providerId === "youtube" ? extractYoutubeVideoId(url) : undefined,
-            command: ["yt-dlp", ...fallbackArgs],
-          },
-          "yt-dlp metadata bot block; retrying with android fallback",
-        );
-        try {
-          const { stdout, stderr: fallbackStderr } = await execa(ytDlp.path, fallbackArgs, { timeout: 60_000, reject: true, env: ytDlpExecutionEnv, cancelSignal: signal });
-          logger.debug(
-            { durationMs: Date.now() - start, stderr: fallbackStderr?.slice(0, 500), fallback: true },
-            "yt-dlp metadata fallback done",
+        // Try fallback clients sequentially within remaining signal budget (respect 8s abort)
+        let lastFallbackErr: unknown = null;
+        for (const client of YOUTUBE_FALLBACK_CLIENTS) {
+          if (signal?.aborted) {
+            logger.warn({ providerId, client }, "yt-dlp metadata fallback aborted (timeout budget)");
+            break;
+          }
+          const fallbackArgs = addYoutubeBotFallbackArgs(args, client);
+          logger.warn(
+            {
+              provider: providerId,
+              ytDlpVersion: ytDlp.version,
+              cookiesLoaded,
+              videoId: providerId === "youtube" ? extractYoutubeVideoId(url) : undefined,
+              command: ["yt-dlp", ...fallbackArgs],
+              fallbackClient: client,
+            },
+            `yt-dlp metadata bot block; retrying with ${client} fallback`,
           );
-          recordArgv({
-            kind: "info",
-            attempt: "android-fallback",
-            providerId,
-            url,
-            argv: fallbackArgs,
-            result: "ok",
-            exitCode: 0,
-            durationMs: Date.now() - start,
-            stdout,
-            stderr: fallbackStderr,
-          });
-          logMemory("ytdlp:metadata:fallback-done", { provider: providerId });
-          return JSON.parse(stdout) as RawMetadata;
-        } catch (fallbackErr) {
-          const fallbackExecaErr = fallbackErr as { stderr?: string; stdout?: string; message?: string };
-          const fallbackOutput = [fallbackExecaErr.stdout, fallbackExecaErr.stderr, fallbackExecaErr.message]
-            .filter(Boolean)
-            .join("\n");
-          mapped = mapYtDlpError(fallbackOutput, { providerId, url, cookiesDetected: cookiesLoaded });
-          recordArgv({
-            kind: "info",
-            attempt: "android-fallback",
-            providerId,
-            url,
-            argv: fallbackArgs,
-            result: "error",
-            errorCode: mapped.code,
-            durationMs: Date.now() - start,
-            stderr: fallbackExecaErr.stderr ?? fallbackExecaErr.message,
-            stdout: fallbackExecaErr.stdout,
-          });
+          try {
+            const { stdout, stderr: fallbackStderr } = await execa(ytDlp.path, fallbackArgs, { timeout: 30_000, reject: true, env: ytDlpExecutionEnv, cancelSignal: signal });
+            logger.debug(
+              { durationMs: Date.now() - start, stderr: fallbackStderr?.slice(0, 500), fallback: client },
+              "yt-dlp metadata fallback done",
+            );
+            recordArgv({
+              kind: "info",
+              attempt: `${client}-fallback` as never,
+              providerId,
+              url,
+              argv: fallbackArgs,
+              result: "ok",
+              exitCode: 0,
+              durationMs: Date.now() - start,
+              stdout,
+              stderr: fallbackStderr,
+            });
+            logMemory("ytdlp:metadata:fallback-done", { provider: providerId, client });
+            return JSON.parse(stdout) as RawMetadata;
+          } catch (fallbackErr) {
+            lastFallbackErr = fallbackErr;
+            const fallbackExecaErr = fallbackErr as { stderr?: string; stdout?: string; message?: string };
+            const fallbackOutput = [fallbackExecaErr.stdout, fallbackExecaErr.stderr, fallbackExecaErr.message]
+              .filter(Boolean)
+              .join("\n");
+            mapped = mapYtDlpError(fallbackOutput, { providerId, url, cookiesDetected: cookiesLoaded });
+            recordArgv({
+              kind: "info",
+              attempt: `${client}-fallback` as never,
+              providerId,
+              url,
+              argv: fallbackArgs,
+              result: "error",
+              errorCode: mapped.code,
+              durationMs: Date.now() - start,
+              stderr: fallbackExecaErr.stderr ?? fallbackExecaErr.message,
+              stdout: fallbackExecaErr.stdout,
+            });
+            if (mapped.code !== "BOT_CHECK") break;
+            // continue to next client
+          }
+        }
+        if (lastFallbackErr && (lastFallbackErr as { message?: string })?.message?.includes("abort")) {
+          throw lastFallbackErr;
         }
       }
       logger.warn(
