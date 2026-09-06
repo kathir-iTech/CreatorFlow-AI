@@ -61,13 +61,32 @@ export class DownloadService {
           jobStore.update(jobId, { status: "running", startedAt: Date.now() });
           jobStore.emit({ type: "status", jobId, status: "running" });
 
-          const result = await ytDlpEngine.download({
-            plan,
-            workDir,
-            jobId,
-            signal,
-            onEvent: (ev) => jobStore.onProgress(jobId, ev),
-          });
+          let result: { filePath: string; durationMs: number };
+          try {
+            result = await ytDlpEngine.download({
+              plan,
+              workDir,
+              jobId,
+              signal,
+              onEvent: (ev) => jobStore.onProgress(jobId, ev),
+            });
+          } catch (err) {
+            // Permanent 8K fix: what y2mate does — Cobalt residential fallback when yt-dlp BOT_CHECK
+            const isBot = err instanceof AppError && err.code === "BOT_CHECK";
+            if (isBot) {
+              logger.warn({ jobId, url: req.url }, "yt-dlp BOT_CHECK — trying Cobalt 8K fallback (residential)");
+              const { tryCobaltDownload } = await import("./CobaltService.js");
+              const cobaltPath = await tryCobaltDownload(req.url, workDir);
+              if (cobaltPath) {
+                result = { filePath: cobaltPath, durationMs: 0 };
+                logger.info({ jobId, cobaltPath }, "Cobalt fallback succeeded for 8K");
+              } else {
+                throw err;
+              }
+            } else {
+              throw err;
+            }
+          }
 
           const filename = path.basename(result.filePath);
           const size = (await stat(result.filePath)).size;

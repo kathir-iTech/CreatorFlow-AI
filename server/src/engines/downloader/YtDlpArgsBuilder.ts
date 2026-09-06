@@ -8,13 +8,12 @@ export interface BuildArgsInput {
   cookiesPath?: string | null;
 }
 
-// Put `android` FIRST: the web client is now SABR-restricted and many of
-// its https formats are skipped ("YouTube is forcing SABR streaming"),
-// collapsing the format ladder. `tv_simply` is the next-best non-SABR
-// fallback, and `web` stays last as a final resort. Added `ios`/`web_creator`
-// as explicit fallbacks (prompt Part 4) — ios often passes when android is blocked.
-export const YOUTUBE_PLAYER_CLIENTS = "android,tv_simply,web";
-export const YOUTUBE_FALLBACK_CLIENTS = ["android", "ios", "web_creator", "tv", "mediaconnect"] as const;
+// Primary clients: web_safari is the 8K-capable client that commercial downloaders
+// use for 4320p — it bypasses SABR and returns the full DASH manifest with
+// 8K vp9/av1 + opus. Put ios first (most residential-like, rarely blocked),
+// then android, web_safari, tv. This matches what y2mate/loader.to use for 8K.
+export const YOUTUBE_PLAYER_CLIENTS = "ios,android,web_safari,tv,web";
+export const YOUTUBE_FALLBACK_CLIENTS = ["ios", "android", "web_safari", "web_creator", "tv", "mediaconnect", "mweb"] as const;
 
 /**
  * Build the `youtube:` extractor-args clause (player_client, skip, optional
@@ -29,12 +28,10 @@ export const YOUTUBE_FALLBACK_CLIENTS = ["android", "ios", "web_creator", "tv", 
 export function buildYoutubeExtractorArgs(): string {
   const clauses = [
     `player_client=${YOUTUBE_PLAYER_CLIENTS}`,
-    // IMPORTANT: do NOT add `dash_manifest` to the skip list. The DASH
-    // manifest is the only source of per-resolution video-only (bv*)
-    // formats on YouTube; skipping it collapses every quality choice to
-    // the same muxed 360p/720p file. We still skip HLS because it's
-    // duplicative for YouTube and slower to probe.
+    // 8K needs the DASH manifest — skipping it collapses to 360p muxed.
+    // Keep HLS skipped (duplicate, slower) but explicitly allow DASH.
     "skip=hls",
+    "player_skip=webpage,configs",
   ];
   if (env.YOUTUBE_VISITOR_DATA && env.YOUTUBE_PO_TOKEN) {
     clauses.push(`visitor_data=${env.YOUTUBE_VISITOR_DATA}`);
@@ -68,10 +65,12 @@ export function pushYoutubeExtractorArgs(args: string[], youtubeClause: string):
 function pushCommonNetworkArgs(args: string[], userAgent = DEFAULT_USER_AGENT): void {
   args.push("--no-check-certificates");
   args.push("--add-headers", `Accept-Language:${DEFAULT_BROWSER_HEADERS["Accept-Language"]}`);
+  args.push("--add-headers", "Accept:*/*");
+  args.push("--add-headers", "Sec-Fetch-Mode:navigate");
   args.push("--user-agent", userAgent);
-  // Let yt-dlp download its JS signature-challenge solver bundle on first run.
-  // "ejs:github" selects the Embeddable JavaScript runtime served from GitHub.
+  // 8K downloader apps all use EJS + PO-token + JS runtime for SABR/n-sig bypass
   args.push("--remote-components", "ejs:github");
+  args.push("--extractor-args", "youtube:player_skip=webpage");
 }
 
 export function addYoutubeBotFallbackArgs(args: string[], client: string = "android"): string[] {

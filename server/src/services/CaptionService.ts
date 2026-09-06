@@ -488,16 +488,32 @@ async function transcribeWithWhisper(rawUrl: string, providerId: string): Promis
       filePath = result.filePath;
     } catch (err) {
       if (err instanceof AppError && err.code === "BOT_CHECK") {
-        logger.warn({ err, providerId, url, preserved: true }, "whisper audio download: preserving BOT_CHECK 422");
-        throw err;
+        // Try Cobalt residential for audio when yt-dlp is IP-blocked (same as 8K downloaders)
+        logger.warn({ err, providerId, url }, "whisper audio BOT_CHECK — trying Cobalt audio fallback");
+        try {
+          const { tryCobaltDownload } = await import("./CobaltService.js");
+          const cobaltPath = await tryCobaltDownload(url, workDir);
+          if (cobaltPath) {
+            logger.info({ cobaltPath }, "Cobalt audio fallback succeeded");
+            filePath = cobaltPath;
+          } else {
+            logger.warn({ err, providerId, url, preserved: true }, "whisper audio download: preserving BOT_CHECK 422");
+            throw err;
+          }
+        } catch (cobaltErr) {
+          if (cobaltErr instanceof AppError && cobaltErr.code === "BOT_CHECK") throw cobaltErr;
+          logger.warn({ err, providerId, url, preserved: true }, "whisper audio download: preserving BOT_CHECK 422");
+          throw err;
+        }
+      } else {
+        const detail = err instanceof Error ? err.message : String(err);
+        logger.warn({ err, providerId, url }, "whisper fallback: audio download failed");
+        throw new AppError(
+          "AUDIO_DOWNLOAD_FAILED",
+          `Couldn't download this video's audio for transcription (${detail}). It may be private, age-restricted, region-locked, or a live stream.`,
+          502,
+        );
       }
-      const detail = err instanceof Error ? err.message : String(err);
-      logger.warn({ err, providerId, url }, "whisper fallback: audio download failed");
-      throw new AppError(
-        "AUDIO_DOWNLOAD_FAILED",
-        `Couldn't download this video's audio for transcription (${detail}). It may be private, age-restricted, region-locked, or a live stream.`,
-        502,
-      );
     }
     const size = (await stat(filePath)).size;
     const MAX_BYTES = 25 * 1024 * 1024;
