@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Captions, Download, Loader2, RefreshCw, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { api, friendlyError, type CaptionSegment, type CaptionsResult } from "@/lib/api";
+import type { StepState } from "@/lib/pipeline";
 import { useSlowHint } from "@/lib/useSlowHint";
 import {
   captionsToPlainText,
@@ -21,9 +22,11 @@ type Status = "idle" | "loading" | "done" | "error";
 export function CaptionsTab({
   url,
   onTranscript,
+  onStatusChange,
 }: {
   url: string;
-  onTranscript?: (text: string, result: CaptionsResult) => void;
+  onTranscript?: (text: string, result: CaptionsResult | null) => void;
+  onStatusChange?: (s: StepState) => void;
 }) {
   const [status, setStatus] = useState<Status>("idle");
   const [result, setResult] = useState<CaptionsResult | null>(null);
@@ -46,12 +49,14 @@ export function CaptionsTab({
       lastFetchedUrl.current = u;
       setStatus("loading");
       setError(null);
+      onStatusChange?.("working");
       try {
         const data = await api.captions(u);
         if (requestSeq.current !== seq) return; // stale — a newer request won
         setResult(data);
         setSegments(data.captions);
         setStatus("done");
+        onStatusChange?.("done");
         const label =
           data.source === "native" ? "Native YouTube captions" : "Groq Whisper transcription";
         toast.success(label, {
@@ -63,10 +68,12 @@ export function CaptionsTab({
         const f = friendlyError(e);
         setError({ title: f.title, message: f.message });
         setStatus("error");
+        onStatusChange?.("error");
+        onTranscript?.("", null);
         toast.error(f.title, { description: f.message });
       }
     },
-    [onTranscript],
+    [onTranscript, onStatusChange],
   );
 
   // Auto-fetch when the shared top-level URL is submitted — every NEW url
@@ -129,7 +136,7 @@ export function CaptionsTab({
       </CardHeader>
       <CardContent className="space-y-4" aria-live="polite">
         {status === "idle" && (
-          <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-6 text-center text-sm text-muted-foreground">
             No transcript yet — paste a link above and hit Fetch, or press “Get captions”.
           </div>
         )}

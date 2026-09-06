@@ -1,11 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useCallback, useState, type ReactNode } from "react";
+import type { StepState } from "@/lib/pipeline";
 import {
   ArrowRight,
+  ArrowDown,
   Calendar,
   Captions,
+  Check,
   Image as ImageIcon,
+  Loader2,
   Sparkles,
+  TriangleAlert,
   Wand2,
   Zap,
 } from "lucide-react";
@@ -50,7 +55,7 @@ function Hero() {
   );
 }
 
-function StepIndicator({ active }: { active: string }) {
+function StepIndicator({ active, states }: { active: string; states: Record<string, StepState> }) {
   const steps = [
     { key: "fetch", label: "Fetch" },
     { key: "captions", label: "Captions" },
@@ -58,27 +63,58 @@ function StepIndicator({ active }: { active: string }) {
     { key: "thumbnail", label: "Thumbnail" },
     { key: "schedule", label: "Schedule" },
   ];
-  const activeIdx = steps.findIndex((s) => s.key === active);
   return (
-    <div className="mx-auto mt-6 flex w-full max-w-3xl items-center justify-between gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-white/5 p-2 backdrop-blur">
-      {steps.map((s, i) => (
-        <div key={s.key} className="flex items-center gap-2">
-          <div
-            className={
-              i <= activeIdx
-                ? "grid h-7 w-7 place-items-center rounded-full bg-gradient-to-r from-violet-500 to-cyan-400 text-xs font-medium text-white"
-                : "grid h-7 w-7 place-items-center rounded-full bg-foreground/10 text-xs font-medium text-foreground"
-            }
-          >
-            {i + 1}
+    <nav
+      aria-label="Pipeline progress"
+      className="glass mx-auto mt-6 flex w-full max-w-3xl flex-col gap-1 rounded-2xl p-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
+    >
+      {steps.map((s, i) => {
+        const state = states[s.key] ?? "idle";
+        const isActive = active === s.key;
+        return (
+          <div key={s.key} className="flex items-center gap-2 sm:gap-1.5">
+            <div
+              className={
+                state === "done"
+                  ? "grid h-7 w-7 shrink-0 place-items-center rounded-full bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
+                  : state === "working"
+                    ? "node-active-ripple grid h-7 w-7 shrink-0 place-items-center rounded-full bg-cyan-400 text-zinc-950 shadow-lg shadow-cyan-400/40 ring-2 ring-cyan-300/60"
+                    : state === "error"
+                      ? "grid h-7 w-7 shrink-0 place-items-center rounded-full bg-rose-500 text-white shadow-lg shadow-rose-500/30"
+                      : isActive
+                        ? "grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gradient-to-r from-violet-500 to-cyan-400 text-xs font-medium text-white"
+                        : "node-pending-pulse grid h-7 w-7 shrink-0 place-items-center rounded-full bg-foreground/10 text-xs font-medium text-foreground"
+              }
+            >
+              {state === "done" ? (
+                <Check className="pop-in h-3.5 w-3.5" strokeWidth={3} />
+              ) : state === "working" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : state === "error" ? (
+                <TriangleAlert className="h-3.5 w-3.5" />
+              ) : (
+                i + 1
+              )}
+            </div>
+            <span
+              className={
+                state === "done"
+                  ? "whitespace-nowrap text-xs font-medium text-emerald-300"
+                  : "whitespace-nowrap text-xs text-muted-foreground"
+              }
+            >
+              {s.label}
+            </span>
+            {i < steps.length - 1 && (
+              <>
+                <ArrowRight className="hidden h-3 w-3 text-muted-foreground/50 sm:block" />
+                <ArrowDown className="h-3 w-3 text-muted-foreground/50 sm:hidden" />
+              </>
+            )}
           </div>
-          <span className="whitespace-nowrap text-xs text-muted-foreground">{s.label}</span>
-          {i < steps.length - 1 && (
-            <ArrowRight className="hidden h-3 w-3 text-muted-foreground/50 sm:block" />
-          )}
-        </div>
-      ))}
-    </div>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -106,6 +142,11 @@ function Index() {
   const [tab, setTab] = useState("captions");
   const [transcript, setTranscript] = useState("");
   const [captionsResult, setCaptionsResult] = useState<CaptionsResult | null>(null);
+  // Live pipeline statuses driving the step indicator (real completions,
+  // not tab position).
+  const [fetchState, setFetchState] = useState<StepState>("idle");
+  const [captionsState, setCaptionsState] = useState<StepState>("idle");
+  const [seoState, setSeoState] = useState<StepState>("idle");
 
   const handleSubmit = useCallback((u: string) => {
     setUrl(u);
@@ -114,6 +155,9 @@ function Index() {
     // nothing from the old video lingers (Part 7/8 row 15).
     setTranscript("");
     setCaptionsResult(null);
+    setFetchState("idle");
+    setCaptionsState("idle");
+    setSeoState("idle");
     setTab("captions");
   }, []);
 
@@ -121,11 +165,32 @@ function Index() {
     setUrl(u);
   }, []);
 
-  const handleTranscript = useCallback((text: string, result: CaptionsResult) => {
+  const handleTranscript = useCallback((text: string, result: CaptionsResult | null) => {
     // Shared state — SEO reuses this transcript without re-fetching.
+    // A null result means the pipeline reset or captions failed: SEO clears.
     setTranscript(text);
     setCaptionsResult(result);
   }, []);
+
+  const handleFetchStatus = useCallback((s: StepState) => {
+    setFetchState(s);
+  }, []);
+
+  const handleCaptionsStatus = useCallback((s: StepState) => {
+    setCaptionsState(s);
+  }, []);
+
+  const handleSeoResult = useCallback((hasResult: boolean) => {
+    setSeoState(hasResult ? "done" : "idle");
+  }, []);
+
+  const stepStates: Record<string, StepState> = {
+    fetch: fetchState,
+    captions: captionsState === "idle" && submittedUrl ? "working" : captionsState,
+    seo: seoState === "done" ? "done" : transcript ? "working" : "idle",
+    thumbnail: tab === "thumbnail" && submittedUrl ? "working" : "idle",
+    schedule: tab === "schedule" ? "working" : "idle",
+  };
 
   return (
     <div className="space-y-8">
@@ -135,60 +200,65 @@ function Index() {
         <div className="mt-6">
           <UrlInput value={url} onValueChange={handleValueChange} onSubmit={handleSubmit} />
         </div>
-        <StepIndicator active={tab} />
+        <StepIndicator active={tab} states={stepStates} />
       </section>
 
       <section className="mx-auto w-full max-w-3xl">
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="fetch" className="gap-1 text-xs">
+          <TabsList className="grid w-full grid-cols-5" aria-label="Pipeline stages">
+            <TabsTrigger value="fetch" className="min-h-11 gap-1 text-xs">
               <Zap className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Fetch</span>
             </TabsTrigger>
-            <TabsTrigger value="captions" className="gap-1 text-xs">
+            <TabsTrigger value="captions" className="min-h-11 gap-1 text-xs">
               <Captions className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Captions</span>
             </TabsTrigger>
-            <TabsTrigger value="seo" className="gap-1 text-xs">
+            <TabsTrigger value="seo" className="min-h-11 gap-1 text-xs">
               <Wand2 className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">SEO</span>
             </TabsTrigger>
-            <TabsTrigger value="thumbnail" className="gap-1 text-xs">
+            <TabsTrigger value="thumbnail" className="min-h-11 gap-1 text-xs">
               <ImageIcon className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Thumb</span>
             </TabsTrigger>
-            <TabsTrigger value="schedule" className="gap-1 text-xs">
+            <TabsTrigger value="schedule" className="min-h-11 gap-1 text-xs">
               <Calendar className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Plan</span>
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="fetch" className="mt-4">
+          <TabsContent value="fetch" className="tab-panel-enter mt-4">
             <LazyPanel>
-              <FetchTab url={submittedUrl} />
+              <FetchTab url={submittedUrl} onStatusChange={handleFetchStatus} />
             </LazyPanel>
           </TabsContent>
-          <TabsContent value="captions" className="mt-4">
+          <TabsContent value="captions" className="tab-panel-enter mt-4">
             <LazyPanel>
-              <CaptionsTab url={submittedUrl} onTranscript={handleTranscript} />
+              <CaptionsTab
+                url={submittedUrl}
+                onTranscript={handleTranscript}
+                onStatusChange={handleCaptionsStatus}
+              />
             </LazyPanel>
           </TabsContent>
-          <TabsContent value="seo" className="mt-4">
+          <TabsContent value="seo" className="tab-panel-enter mt-4">
             <LazyPanel>
               <SeoTab
                 transcript={transcript}
                 videoTitle={
                   captionsResult?.videoId ? `YouTube Video ${captionsResult.videoId}` : undefined
                 }
+                onResult={handleSeoResult}
               />
             </LazyPanel>
           </TabsContent>
-          <TabsContent value="thumbnail" className="mt-4">
+          <TabsContent value="thumbnail" className="tab-panel-enter mt-4">
             <LazyPanel>
               <ThumbnailTab url={submittedUrl} />
             </LazyPanel>
           </TabsContent>
-          <TabsContent value="schedule" className="mt-4">
+          <TabsContent value="schedule" className="tab-panel-enter mt-4">
             <LazyPanel>
               <ScheduleTab />
             </LazyPanel>

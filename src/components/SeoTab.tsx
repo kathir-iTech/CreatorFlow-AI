@@ -34,7 +34,15 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-export function SeoTab({ transcript, videoTitle }: { transcript: string; videoTitle?: string }) {
+export function SeoTab({
+  transcript,
+  videoTitle,
+  onResult,
+}: {
+  transcript: string;
+  videoTitle?: string;
+  onResult?: (hasResult: boolean) => void;
+}) {
   const [result, setResult] = useState<SeoResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +63,7 @@ export function SeoTab({ transcript, videoTitle }: { transcript: string; videoTi
       // Ignore the response if the transcript changed mid-flight (race guard).
       if (seenTranscript.current !== transcript) return;
       setResult(data);
+      onResult?.(true);
       setSelectedTitle(0);
       setDescription(data.description);
       setTags(data.tags);
@@ -62,10 +71,11 @@ export function SeoTab({ transcript, videoTitle }: { transcript: string; videoTi
       if (seenTranscript.current !== transcript) return;
       const err = friendlyError(e);
       setError(err.message);
+      onResult?.(false);
     } finally {
       if (seenTranscript.current === transcript) setLoading(false);
     }
-  }, [transcript, videoTitle]);
+  }, [transcript, videoTitle, onResult]);
 
   // Auto-generate when the transcript first arrives AND whenever a NEW
   // transcript replaces it (previously only the first video ever generated).
@@ -76,6 +86,7 @@ export function SeoTab({ transcript, videoTitle }: { transcript: string; videoTi
         seenTranscript.current = "";
         setResult(null);
         setError(null);
+        onResult?.(false);
       }
       return;
     }
@@ -84,7 +95,7 @@ export function SeoTab({ transcript, videoTitle }: { transcript: string; videoTi
       setResult(null);
       generate();
     }
-  }, [transcript, generate]);
+  }, [transcript, generate, onResult]);
 
   const removeTag = (idx: number) => {
     setTags((prev) => prev.filter((_, i) => i !== idx));
@@ -93,7 +104,7 @@ export function SeoTab({ transcript, videoTitle }: { transcript: string; videoTi
   if (!transcript.trim()) {
     return (
       <Card className="glass">
-        <CardContent className="p-8 text-center">
+        <CardContent className="p-6 text-center">
           <AlertCircle className="mx-auto h-8 w-8 text-muted-foreground" />
           <p className="mt-2 text-sm text-muted-foreground">
             Generate captions first — the SEO tab reuses that transcript automatically.
@@ -135,7 +146,7 @@ export function SeoTab({ transcript, videoTitle }: { transcript: string; videoTi
       {/* Loading */}
       {loading && !result && (
         <Card className="glass">
-          <CardContent className="p-8 text-center">
+          <CardContent className="p-6 text-center">
             <Loader2 className="mx-auto h-6 w-6 animate-spin text-violet-400" />
             <p className="mt-2 text-sm text-muted-foreground">Generating SEO metadata...</p>
             {slow && (

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Download, Loader2, RefreshCw, TriangleAlert, Zap } from "lucide-react";
+import { Download, Loader2, RefreshCw, TriangleAlert, Wifi, WifiOff, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { api, friendlyError, API_BASE_URL, type Job } from "@/lib/api";
+import type { StepState } from "@/lib/pipeline";
+import { useJobPolling } from "@/hooks/useJobPolling";
 import { useSlowHint } from "@/lib/useSlowHint";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,18 +17,43 @@ type Status = "idle" | "working" | "done" | "error";
  * (GET /api/v1/downloads/:id/events), not a placeholder. Shows queued →
  * percent → succeeded (with a one-click file link) or failed + Retry.
  */
-export function FetchTab({ url }: { url: string }) {
+export function FetchTab({
+  url,
+  onStatusChange,
+}: {
+  url: string;
+  onStatusChange?: (s: StepState) => void;
+}) {
   const [status, setStatus] = useState<Status>("idle");
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
+  // Stream connection state for the status pill. On transport failure the
+  // tab falls back to polling (Step 6) instead of erroring immediately.
+  const [streamState, setStreamState] = useState<"live" | "polling" | "closed">("closed");
   const lastUrl = useRef("");
   const slow = useSlowHint(status === "working");
   const esRef = useRef<EventSource | null>(null);
+  const pollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Polling fallback: active only while the SSE stream is down mid-job.
+  const { job: polledJob } = useJobPolling(streamState === "polling" ? jobId : null);
+
+  const fail = useCallback(
+    (message: string, title?: string) => {
+      setError(message);
+      setStatus("error");
+      setStreamState("closed");
+      onStatusChange?.("error");
+      if (title) toast.error(title, { description: message });
+    },
+    [onStatusChange],
+  );
 
   const closeStream = useCallback(() => {
     esRef.current?.close();
     esRef.current = null;
+    if (pollTimeout.current) clearTimeout(pollTimeout.current);
   }, []);
 
   const start = useCallback(
@@ -39,8 +66,10 @@ export function FetchTab({ url }: { url: string }) {
       closeStream();
       lastUrl.current = u;
       setStatus("working");
+      setStreamState("live");
       setError(null);
       setJob(null);
+      onStatusChange?.("working");
       try {
         const created = await api.createDownload({ url: u, kind: "video", maxHeight: 720 });
         setJobId(created.id);
@@ -63,8 +92,7 @@ export function FetchTab({ url }: { url: string }) {
             const data = JSON.parse((ev as MessageEvent).data) as Partial<Job>;
             setJob((prev) => ({ ...(prev ?? created), ...data, id: created.id }));
             if (data.status === "canceled") {
-              setStatus("error");
-              setError("Download was canceled.");
+              fail("Download was canceled.");
               es.close();
             }
           } catch {
@@ -84,6 +112,8 @@ export function FetchTab({ url }: { url: string }) {
               filename: data.filename,
             }));
             setStatus("done");
+            setStreamState("closed");
+            onStatusChange?.("done");
             toast.success("Download ready", {
               description: data.filename ?? "Your file is ready.",
             });
@@ -101,23 +131,22 @@ export function FetchTab({ url }: { url: string }) {
               message?: string;
             };
             if (data?.message || data?.code) {
-              setError(data.message ?? "Download failed.");
-              setStatus("error");
+              fail(data.message ?? "Download failed.");
               es.close();
               return;
             }
           } catch {
             /* no payload — transport-level failure below */
           }
-          // Transport failure with no final state: mark error so the UI
-          // never hangs on a dead stream.
-          setJob((prev) => {
-            if (prev && (prev.status === "succeeded" || prev.status === "failed")) return prev;
-            setStatus("error");
-            setError("Lost connection to the download stream. Retry to resume.");
-            return prev;
-          });
+          // Transport failure mid-job: fall back to polling instead of
+          // erroring — the job keeps running server-side. Give polling 30s
+          // to reach a terminal state before surfacing an error.
           es.close();
+          setStreamState("polling");
+          if (pollTimeout.current) clearTimeout(pollTimeout.current);
+          pollTimeout.current = setTimeout(() => {
+            fail("Lost connection to the download stream. Retry to resume.");
+          }, 30_000);
         });
         // Initial snapshot in case events race ahead of first paint.
         api
@@ -126,13 +155,30 @@ export function FetchTab({ url }: { url: string }) {
           .catch(() => undefined);
       } catch (e) {
         const f = friendlyError(e);
-        setError(f.message);
-        setStatus("error");
-        toast.error(f.title, { description: f.message });
+        fail(f.message, f.title);
       }
     },
-    [closeStream],
+    [closeStream, fail, onStatusChange],
   );
+
+  // Merge polled fallback results: a terminal polled state resolves the job
+  // exactly like the equivalent SSE event would.
+  useEffect(() => {
+    if (streamState !== "polling" || !polledJob) return;
+    if (polledJob.status === "succeeded") {
+      if (pollTimeout.current) clearTimeout(pollTimeout.current);
+      setJob(polledJob);
+      setStatus("done");
+      setStreamState("closed");
+      onStatusChange?.("done");
+      toast.success("Download ready", { description: polledJob.filename ?? "Done." });
+    } else if (polledJob.status === "failed" || polledJob.status === "canceled") {
+      if (pollTimeout.current) clearTimeout(pollTimeout.current);
+      fail(polledJob.message ?? "Download failed.");
+    } else {
+      setJob(polledJob);
+    }
+  }, [polledJob, streamState, fail, onStatusChange]);
 
   // New submitted URL → new job (never show the previous video's file).
   useEffect(() => {
@@ -159,6 +205,22 @@ export function FetchTab({ url }: { url: string }) {
                   {job.status} · {percent}%
                 </Badge>
               )}
+              {status === "working" &&
+                (streamState === "live" ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-300">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+                    </span>
+                    <Wifi className="h-3 w-3" />
+                    Live
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-medium text-amber-300">
+                    <WifiOff className="h-3 w-3" />
+                    Reconnecting…
+                  </span>
+                ))}
             </CardTitle>
             <CardDescription>
               {url ? (
@@ -186,7 +248,7 @@ export function FetchTab({ url }: { url: string }) {
       </CardHeader>
       <CardContent className="space-y-4" aria-live="polite">
         {status === "idle" && (
-          <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-6 text-center text-sm text-muted-foreground">
             No download yet — paste a link above and hit Fetch.
           </div>
         )}

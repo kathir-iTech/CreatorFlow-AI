@@ -168,9 +168,11 @@ export function ThumbnailTab({ url }: { url: string }) {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
+    // Snap to canvas center within a small threshold (with guides shown).
+    const snap = (v: number) => (Math.abs(v - 0.5) < 0.015 ? 0.5 : v);
     setTextPos({
-      x: Math.max(0, Math.min(1, ((e.clientX - rect.left) * scaleX) / canvas.width)),
-      y: Math.max(0, Math.min(1, ((e.clientY - rect.top) * scaleY) / canvas.height)),
+      x: snap(Math.max(0, Math.min(1, ((e.clientX - rect.left) * scaleX) / canvas.width))),
+      y: snap(Math.max(0, Math.min(1, ((e.clientY - rect.top) * scaleY) / canvas.height))),
     });
   };
 
@@ -185,8 +187,12 @@ export function ThumbnailTab({ url }: { url: string }) {
     else if (e.key === "ArrowDown") next.y = Math.min(1, next.y + step);
     else return;
     e.preventDefault();
-    setTextPos(next);
+    const snap = (v: number) => (Math.abs(v - 0.5) < 0.015 ? 0.5 : v);
+    setTextPos({ x: snap(next.x), y: snap(next.y) });
   };
+
+  const showGuideV = !!text.trim() && Math.abs(textPos.x - 0.5) < 0.02;
+  const showGuideH = !!text.trim() && Math.abs(textPos.y - 0.5) < 0.02;
 
   const exportPng = () => {
     const canvas = canvasRef.current;
@@ -201,7 +207,7 @@ export function ThumbnailTab({ url }: { url: string }) {
   if (!url.trim()) {
     return (
       <Card className="glass">
-        <CardContent className="p-8 text-center">
+        <CardContent className="p-6 text-center">
           <AlertCircle className="mx-auto h-8 w-8 text-muted-foreground" />
           <p className="mt-2 text-sm text-muted-foreground">
             Paste a video URL above to extract thumbnail frames.
@@ -246,7 +252,7 @@ export function ThumbnailTab({ url }: { url: string }) {
       {/* Loading */}
       {loading && !result && (
         <Card className="glass">
-          <CardContent className="p-8 text-center">
+          <CardContent className="p-6 text-center">
             <Loader2 className="mx-auto h-6 w-6 animate-spin text-cyan-400" />
             <p className="mt-2 text-sm text-muted-foreground">
               Downloading video and extracting keyframes...
@@ -284,22 +290,75 @@ export function ThumbnailTab({ url }: { url: string }) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <canvas
-                ref={canvasRef}
-                className="aspect-video w-full rounded-lg border border-white/5 bg-black/20 cursor-crosshair"
-                onMouseDown={handleCanvasMouseDown}
-                onMouseMove={handleCanvasMouseMove}
-                onMouseUp={handleCanvasMouseUp}
-                onMouseLeave={handleCanvasMouseUp}
-                tabIndex={text.trim() ? 0 : -1}
-                role="application"
-                aria-label={
-                  text.trim()
-                    ? "Thumbnail preview. Focus and use arrow keys to move the overlay text."
-                    : "Thumbnail preview"
-                }
-                onKeyDown={handleCanvasKeyDown}
-              />
+              {/* macOS window chrome around the canvas */}
+              <div className="overflow-hidden rounded-xl border border-white/10 bg-black/30 shadow-2xl shadow-black/50">
+                <div className="flex items-center gap-2 border-b border-white/5 bg-white/[0.04] px-3 py-2">
+                  <span className="flex gap-1.5" aria-hidden="true">
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
+                  </span>
+                  <span className="ml-1 truncate text-[11px] text-muted-foreground">
+                    thumbnail-{result.videoId}.png
+                  </span>
+                </div>
+                <div className="relative">
+                  <canvas
+                    ref={canvasRef}
+                    className="aspect-video w-full cursor-crosshair"
+                    onMouseDown={handleCanvasMouseDown}
+                    onMouseMove={handleCanvasMouseMove}
+                    onMouseUp={handleCanvasMouseUp}
+                    onMouseLeave={handleCanvasMouseUp}
+                    tabIndex={text.trim() ? 0 : -1}
+                    role="application"
+                    aria-label={
+                      text.trim()
+                        ? "Thumbnail preview. Focus and use arrow keys to move the overlay text."
+                        : "Thumbnail preview"
+                    }
+                    onKeyDown={handleCanvasKeyDown}
+                  />
+                  {/* snap alignment guides */}
+                  {showGuideV && (
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-cyan-300/80"
+                    />
+                  )}
+                  {showGuideH && (
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-cyan-300/80"
+                    />
+                  )}
+                  {/* floating glass toolbar: rapid text-style switching */}
+                  {text.trim() && (
+                    <div
+                      className="glass absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full p-1"
+                      role="toolbar"
+                      aria-label="Overlay text styles"
+                    >
+                      {STYLES.map((s, i) => (
+                        <button
+                          key={s.name}
+                          onClick={() => setStyleIdx(i)}
+                          aria-pressed={i === styleIdx}
+                          aria-label={`${s.name} style`}
+                          title={s.name}
+                          className={`pressable min-h-11 rounded-full px-3 text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60 ${
+                            i === styleIdx
+                              ? "bg-cyan-400/20 text-foreground"
+                              : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                          }`}
+                        >
+                          {s.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
               <p className="mt-2 text-[10px] text-muted-foreground">
                 {text.trim()
                   ? "Click and drag on the canvas to reposition text (or focus it and use arrow keys)"
@@ -320,7 +379,9 @@ export function ThumbnailTab({ url }: { url: string }) {
                   <button
                     key={i}
                     onClick={() => setSelected(i)}
-                    className={`relative overflow-hidden rounded-md border-2 transition-colors ${
+                    aria-pressed={i === selected}
+                    aria-label={`Use frame at ${frame.timeSec.toFixed(0)} seconds`}
+                    className={`pressable relative min-h-11 overflow-hidden rounded-md border-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60 ${
                       i === selected
                         ? "border-cyan-400"
                         : "border-transparent opacity-70 hover:opacity-100"
@@ -363,22 +424,14 @@ export function ThumbnailTab({ url }: { url: string }) {
                   className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-cyan-400/50"
                 />
 
-                {/* Style presets */}
-                <div className="flex gap-1.5">
-                  {STYLES.map((s, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setStyleIdx(i)}
-                      className={`flex-1 rounded-md border px-2 py-1.5 text-[10px] transition-colors ${
-                        i === styleIdx
-                          ? "border-cyan-400/50 bg-cyan-400/10 text-foreground"
-                          : "border-white/5 bg-white/[0.02] text-muted-foreground hover:bg-white/5"
-                      }`}
-                    >
-                      {s.name}
-                    </button>
-                  ))}
-                </div>
+                {/* Style presets live in the floating toolbar over the canvas;
+                    the active style is shown here as a readout. */}
+                {text.trim() && (
+                  <p className="text-[10px] text-muted-foreground">
+                    Style: <span className="text-foreground">{STYLES[styleIdx]?.name}</span> —
+                    switch it from the toolbar on the preview.
+                  </p>
+                )}
 
                 {/* Vertical position */}
                 <div className="space-y-1">
